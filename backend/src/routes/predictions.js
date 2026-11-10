@@ -6,6 +6,16 @@ const env = require('../config/env');
 const { requireAuth } = require('../middleware/auth');
 const { trackedFetch } = require('../services/traffic');
 const router = express.Router();
+const PALAWAN_PREDICTION_EXTENT = Object.freeze({ minLat: 7, maxLat: 12.9, minLng: 116, maxLng: 121 });
+
+function isPalawanPredictionLocation(location) {
+  const lat = Number(location?.lat);
+  const lng = Number(location?.lng);
+  const extent = PALAWAN_PREDICTION_EXTENT;
+  return Number.isFinite(lat) && Number.isFinite(lng)
+    && lat >= extent.minLat && lat <= extent.maxLat
+    && lng >= extent.minLng && lng <= extent.maxLng;
+}
 
 function validateAnnualForecast(body) {
   const start = body.startDate;
@@ -21,8 +31,7 @@ function validateAnnualForecast(body) {
   const now = new Date();
   const earliest = `${now.getFullYear()}-01-01`;
   if (start < earliest) return 'Choose a start date from January 1 of the current year onward.';
-  const { lat, lng } = body.location || {};
-  if (!Number.isFinite(Number(lat)) || !Number.isFinite(Number(lng)) || !(Number(lat) >= 7 && Number(lat) <= 12.9 && Number(lng) >= 116 && Number(lng) <= 121)) {
+  if (!isPalawanPredictionLocation(body.location)) {
     return 'Select a pinned location within the supported Palawan map extent.';
   }
   return null;
