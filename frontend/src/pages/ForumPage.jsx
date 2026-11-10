@@ -19,6 +19,8 @@ function PostMediaGallery({ media = [] }) {
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
   const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const dragRef = useRef(null);
   const visibleCount = Math.min(media.length, 4);
   const shownMedia = media.slice(0, visibleCount);
 
@@ -26,8 +28,8 @@ function PostMediaGallery({ media = [] }) {
     if (!open) return undefined;
     const onKeyDown = (event) => {
       if (event.key === 'Escape') setOpen(false);
-      if (event.key === 'ArrowRight') { setActiveIndex((index) => (index + 1) % media.length); setZoom(1); }
-      if (event.key === 'ArrowLeft') { setActiveIndex((index) => (index - 1 + media.length) % media.length); setZoom(1); }
+      if (event.key === 'ArrowRight') { setActiveIndex((index) => (index + 1) % media.length); resetView(); }
+      if (event.key === 'ArrowLeft') { setActiveIndex((index) => (index - 1 + media.length) % media.length); resetView(); }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
@@ -35,11 +37,43 @@ function PostMediaGallery({ media = [] }) {
 
   const renderMedia = (item, alt = 'Post attachment') => item.type === 'video'
     ? <video controls autoPlay muted playsInline src={assetUrl(item.url)} aria-label={alt} />
-    : <img loading="lazy" src={assetUrl(item.url)} alt={alt} />;
+    : <img loading="lazy" draggable="false" src={assetUrl(item.url)} alt={alt} />;
+
+  function resetView() {
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
+    dragRef.current = null;
+  }
+
+  function startPan(event) {
+    if (zoom <= 1 || media[activeIndex].type === 'video' || event.button !== 0) return;
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    dragRef.current = { pointerId: event.pointerId, x: event.clientX, y: event.clientY, panX: pan.x, panY: pan.y };
+  }
+
+  function movePan(event) {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    const viewport = event.currentTarget;
+    const image = viewport.querySelector('img');
+    const bounds = image?.getBoundingClientRect();
+    const maxX = bounds ? Math.max(0, (bounds.width - viewport.clientWidth) / 2) : Infinity;
+    const maxY = bounds ? Math.max(0, (bounds.height - viewport.clientHeight) / 2) : Infinity;
+    const x = drag.panX + event.clientX - drag.x;
+    const y = drag.panY + event.clientY - drag.y;
+    setPan({ x: Math.max(-maxX, Math.min(maxX, x)), y: Math.max(-maxY, Math.min(maxY, y)) });
+  }
+
+  function endPan(event) {
+    if (dragRef.current?.pointerId !== event.pointerId) return;
+    dragRef.current = null;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+  }
 
   return <>
     <div className={`post-media-gallery count-${visibleCount} ${media.length === 1 ? 'single' : ''}`}>
-      {shownMedia.map((item, index) => <div className="post-media-tile" key={`${item.url}-${index}`} role="button" tabIndex={0} onClick={(event) => { if (event.target.tagName === 'VIDEO') return; setActiveIndex(index); setZoom(1); setOpen(true); }} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setActiveIndex(index); setZoom(1); setOpen(true); } }} aria-label={`View attachment ${index + 1} of ${media.length}`}>
+      {shownMedia.map((item, index) => <div className="post-media-tile" key={`${item.url}-${index}`} role="button" tabIndex={0} onClick={(event) => { if (event.target.tagName === 'VIDEO') return; setActiveIndex(index); resetView(); setOpen(true); }} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setActiveIndex(index); resetView(); setOpen(true); } }} aria-label={`View attachment ${index + 1} of ${media.length}`}>
         {renderMedia(item)}
         {media.length > 4 && index === 3 && <span className="post-media-more"><b>+{media.length - 4}</b></span>}
       </div>)}
@@ -47,11 +81,11 @@ function PostMediaGallery({ media = [] }) {
     {open && <div className="post-gallery-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setOpen(false); }}>
       <section className="post-gallery-dialog" role="dialog" aria-modal="true" aria-label="Post photos and videos">
         <button type="button" className="post-gallery-close" onClick={() => setOpen(false)} aria-label="Close gallery">Close</button>
-        <button type="button" className="post-gallery-nav previous" onClick={() => { setActiveIndex((index) => (index - 1 + media.length) % media.length); setZoom(1); }} aria-label="Previous attachment">Prev</button>
-        <div className="post-gallery-current">{media[activeIndex].type === 'video' ? renderMedia(media[activeIndex], `Post attachment ${activeIndex + 1} of ${media.length}`) : <img src={assetUrl(media[activeIndex].url)} alt={`Post attachment ${activeIndex + 1} of ${media.length}`} style={{ transform: `scale(${zoom})` }} />}</div>
-        <button type="button" className="post-gallery-nav next" onClick={() => { setActiveIndex((index) => (index + 1) % media.length); setZoom(1); }} aria-label="Next attachment">Next</button>
+        <button type="button" className="post-gallery-nav previous" onClick={() => { setActiveIndex((index) => (index - 1 + media.length) % media.length); resetView(); }} aria-label="Previous attachment">Prev</button>
+        <div className={`post-gallery-current ${zoom > 1 && media[activeIndex].type !== 'video' ? 'is-zoomed' : ''} ${dragRef.current ? 'is-dragging' : ''}`} onPointerDown={startPan} onPointerMove={movePan} onPointerUp={endPan} onPointerCancel={endPan}>{media[activeIndex].type === 'video' ? renderMedia(media[activeIndex], `Post attachment ${activeIndex + 1} of ${media.length}`) : <img src={assetUrl(media[activeIndex].url)} alt={`Post attachment ${activeIndex + 1} of ${media.length}`} style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }} />}</div>
+        <button type="button" className="post-gallery-nav next" onClick={() => { setActiveIndex((index) => (index + 1) % media.length); resetView(); }} aria-label="Next attachment">Next</button>
         <div className="post-gallery-count">{activeIndex + 1} / {media.length}</div>
-        <div className="post-gallery-zoom" aria-label="Image zoom controls"><button type="button" onClick={() => setZoom((value) => Math.max(1, Number((value - 0.25).toFixed(2))))} disabled={zoom <= 1} aria-label="Zoom out">-</button><span>{Math.round(zoom * 100)}%</span><button type="button" onClick={() => setZoom((value) => Math.min(4, Number((value + 0.25).toFixed(2))))} disabled={zoom >= 4} aria-label="Zoom in">+</button></div>
+        <div className="post-gallery-zoom" aria-label="Image zoom controls"><button type="button" onClick={() => { const next = Math.max(1, Number((zoom - 0.25).toFixed(2))); setZoom(next); if (next === 1) setPan({ x: 0, y: 0 }); }} disabled={zoom <= 1} aria-label="Zoom out">-</button><span>{Math.round(zoom * 100)}%</span><button type="button" onClick={() => setZoom((value) => Math.min(4, Number((value + 0.25).toFixed(2))))} disabled={zoom >= 4} aria-label="Zoom in">+</button></div>
       </section>
     </div>}
   </>;

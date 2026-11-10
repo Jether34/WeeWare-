@@ -15,6 +15,18 @@ function idOf(value) {
 }
 
 const roleAvatar = (account) => ['da', 'researcher'].includes(account?.role) ? '/assets/weeware-vps-logo.png' : (assetUrl(account?.profilePicture) || '/assets/weeware.png');
+const fileExtension = (filename) => {
+  const extension = String(filename || '').split('.').pop();
+  return extension && extension !== filename ? extension.slice(0, 5).toUpperCase() : 'FILE';
+};
+const formatFileSize = (bytes) => {
+  const size = Number(bytes);
+  if (!Number.isFinite(size) || size < 0) return 'File';
+  if (size < 1024) return `${size} B`;
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(0)} KB`;
+  if (size < 1024 * 1024 * 1024) return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(size / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+};
 
 export default function MessagesPage() {
   const { user: currentUser } = useAuth();
@@ -329,7 +341,7 @@ export default function MessagesPage() {
           </header>
           <div className="conversation-messages group-conversation-messages">
             {conversationLoading && <p className="muted empty-conversation" role="status">Loading group messages?</p>}
-            {!conversationLoading && orderedGroupMessages.map((message) => { const mine = idOf(message.sender) === ownId; return <div className={`chat-row ${mine ? 'mine' : ''}`} key={idOf(message._id)}>{!mine && <small className="group-message-sender">{message.sender?.fullName || message.sender?.role || 'Member'}</small>}<article className={`chat-bubble ${mine ? 'mine' : ''}`}>{(message.content || message.plaintext) && <p>{message.content || message.plaintext}</p>}{!message.content && !message.plaintext && message.legacyUnavailable && <p>This older message was sent before the messaging update and is unavailable.</p>}{message.attachment && <a className="group-message-file" href={`/api/messages/group/files/${message.attachment._id}`} download><span className="group-file-icon">?</span><span><strong>{message.attachment.originalName}</strong><small>{(message.attachment.size / (1024 * 1024)).toFixed(1)} MB ? Download</small></span></a>}<small>{new Date(message.createdAt).toLocaleString()}</small></article></div>; })}
+            {!conversationLoading && orderedGroupMessages.map((message) => { const mine = idOf(message.sender) === ownId; const fileName = message.attachment?.originalName || 'Shared file'; return <div className={`chat-row ${mine ? 'mine' : ''}`} key={idOf(message._id)}>{!mine && <small className="group-message-sender">{message.sender?.fullName || message.sender?.role || 'Member'}</small>}<article className={`chat-bubble ${mine ? 'mine' : ''}`}>{(message.content || message.plaintext) && <p>{message.content || message.plaintext}</p>}{!message.content && !message.plaintext && message.legacyUnavailable && <p>This older message was sent before the messaging update and is unavailable.</p>}{message.attachment && <a className="group-message-file" href={`/api/messages/group/files/${message.attachment._id}`} download={fileName} aria-label={`Download ${fileName}`}><span className="group-file-icon" aria-hidden="true">{fileExtension(fileName)}</span><span className="group-file-details"><strong title={fileName}>{fileName}</strong><small>{formatFileSize(message.attachment.size)} · {message.attachment.mimeType || 'File attachment'}</small></span><span className="group-file-download">Download<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0 5-5m-5 5-5-5M5 18v3h14v-3"/></svg></span></a>}<small>{new Date(message.createdAt).toLocaleString()}</small></article></div>; })}
             {!conversationLoading && orderedGroupMessages.length === 0 && <p className="muted empty-conversation">No group messages yet. Send a message or share a file.</p>}
             <div ref={messageEndRef} />
           </div>
