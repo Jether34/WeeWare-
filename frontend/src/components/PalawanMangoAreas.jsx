@@ -1,7 +1,19 @@
 import { useEffect, useState } from 'react';
 import { CircleMarker, Popup, TileLayer, Tooltip, useMap } from 'react-leaflet';
 
+// Keep the interactive map and the API's supported Palawan study extent aligned.
 export const palawanExtent = [[7.0, 116.0], [12.9, 121.0]];
+export const defaultPalawanLocation = [10.0, 118.8];
+export const isPalawanCoordinate = ([lat, lng]) => Number.isFinite(Number(lat)) && Number.isFinite(Number(lng)) && Number(lat) >= 7 && Number(lat) <= 12.9 && Number(lng) >= 116 && Number(lng) <= 121;
+export function savedPalawanPin() {
+  try {
+    const value = JSON.parse(localStorage.getItem('weeware-location'));
+    if (!value || !isPalawanCoordinate([value.lat, value.lng])) return defaultPalawanLocation;
+    // Older releases automatically stored Puerto Princesa as the default pin.
+    if (Number(value.lat) === 9.7494 && Number(value.lng) === 118.7384) return defaultPalawanLocation;
+    return [Number(value.lat), Number(value.lng)];
+  } catch { return defaultPalawanLocation; }
+}
 
 export const palawanMangoAreas = [
   {

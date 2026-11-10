@@ -97,7 +97,7 @@ export function LoginPage() {
     finally { setBusy(false); }
   }
   return <AuthFrame policy={policy} onClosePolicy={() => setPolicy(null)}><div className="auth-content">
-    <BrandLink/><div className="auth-heading"><span className="section-kicker">{t('WELCOME BACK')}</span><h2>{t('Sign in to WeeWare')}</h2><p>{t('Predict mango pulp weevil infestation in Puerto Princesa.')}</p></div>
+    <BrandLink/><div className="auth-heading"><span className="section-kicker">{t('WELCOME BACK')}</span><h2>{t('Sign in to WeeWare')}</h2><p>{t('Predict mango pulp weevil infestation across Palawan.')}</p></div>
     {error && <p className="error auth-error" role="alert">{error}</p>}
     <form className="auth-form" onSubmit={submit}>
       <div className="field"><label htmlFor="login-email">{t('Email')}</label><input id="login-email" type="email" required autoComplete="email" placeholder="you@example.com" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })}/></div>

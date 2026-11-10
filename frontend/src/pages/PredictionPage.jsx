@@ -4,9 +4,9 @@ import { MapContainer, Marker, Popup, Tooltip, useMapEvents } from 'react-leafle
 import L from 'leaflet';
 import api from '../api';
 import DatePicker from '../components/DatePicker';
-import { FitPalawanExtent, PalawanMangoAreas } from '../components/PalawanMangoAreas';
+import { defaultPalawanLocation, FitPalawanExtent, isPalawanCoordinate, PalawanMangoAreas, savedPalawanPin } from '../components/PalawanMangoAreas';
 
-const center = [9.7494, 118.7384];
+const center = defaultPalawanLocation;
 const featureNames = { rainfall: 'Rainfall', temperature: 'Temperature', humidity: 'Relative humidity', solar: 'Solar radiation', wind: 'Wind speed' };
 const actionByRisk = { Low: 'Continue routine fruit and orchard monitoring.', Medium: 'Increase field checks and use integrated pest management with local guidance.', High: 'Promptly inspect and manage suspected infestation with a local agriculture specialist.' };
 const units = { rainfall: 'mm', temperature: '°C', humidity: '%', solar: 'MJ/m²/day', wind: 'm/s' };
@@ -16,7 +16,6 @@ const localToday = () => { const now = new Date(); return `${now.getFullYear()}-
 const predictionMinDate = () => `${new Date().getFullYear()}-01-01`;
 const addDays = (date, count) => new Date(Date.parse(`${date}T00:00:00Z`) + count * DAY_MS).toISOString().slice(0, 10);
 const icon = L.divIcon({ className: '', html: '<div style="width:18px;height:18px;border:4px solid white;border-radius:50%;background:#16804b;box-shadow:0 1px 7px #173a2c88"></div>', iconSize: [18, 18], iconAnchor: [9, 9] });
-const supported = ([lat, lng]) => lat >= 7 && lat <= 12.9 && lng >= 116 && lng <= 121;
 function MapClick({ onPick }) { useMapEvents({ click: (event) => onPick([event.latlng.lat, event.latlng.lng]) }); return null; }
 
 function MonthlyChart({ climate, feature, featureNames, locale }) {
@@ -40,7 +39,7 @@ export default function PredictionPage() {
   const locale = ({ en: 'en-US', tl: 'fil-PH', ceb: 'ceb-PH', hil: 'hil-PH', krj: 'krj-PH', cyo: 'fil-PH' })[i18n.resolvedLanguage] || 'en-US';
   const [step, setStep] = useState(1);
   const [startDate, setStartDate] = useState(localToday);
-  const [pin, setPin] = useState(() => { try { const value = JSON.parse(localStorage.getItem('weeware-location')); return value && supported([value.lat, value.lng]) ? [Number(value.lat), Number(value.lng)] : center; } catch { return center; } });
+  const [pin, setPin] = useState(savedPalawanPin);
   const [climate, setClimate] = useState(null);
   const [loadingClimate, setLoadingClimate] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -53,7 +52,7 @@ export default function PredictionPage() {
   const annual = climate?.weather || {};
 
   useEffect(() => { localStorage.setItem('weeware-location', JSON.stringify(location)); }, [location]);
-  function pick(point) { if (!supported(point)) { setError(t('Select a pin within the supported Palawan map extent.')); return; } setPin(point); setClimate(null); setPrediction(null); setError(''); }
+  function pick(point) { if (!isPalawanCoordinate(point)) { setError(t('Select a pin within the supported Palawan map extent.')); return; } setPin(point); setClimate(null); setPrediction(null); setError(''); }
   async function extractWeather() {
     if (!startDate || loadingClimate) return;
     setLoadingClimate(true); setClimate(null); setPrediction(null); setError('');
@@ -80,8 +79,9 @@ export default function PredictionPage() {
     <nav className="prediction-stepper" aria-label={t('Prediction steps')}>{['Location', 'Date window', 'Weather', 'Result'].map((label, index) => <div className={`prediction-stepper-item ${step === index + 1 ? 'active' : ''} ${step > index + 1 ? 'complete' : ''}`} key={label}><span>{step > index + 1 ? '✓' : index + 1}</span><small>{t(label)}</small></div>)}</nav>
 
     {step === 1 && <section className="prediction-step-card card"><div className="prediction-step-title"><span>1</span><div><h2>{t('Pin the forecast location')}</h2></div></div>
-      <div className="pin-readout"><strong>Palawan location</strong><span>{location.lat.toFixed(5)}° N, {location.lng.toFixed(5)}° E</span></div>
-      <div className="prediction-map"><MapContainer center={center} zoom={6} minZoom={5} maxZoom={20} scrollWheelZoom className="prediction-map-canvas"><PalawanMangoAreas t={t} /><FitPalawanExtent /><MapClick onPick={pick} /><Marker position={pin} icon={icon}><Tooltip permanent direction="top" offset={[0, -10]}>{t('Selected mango farm location')}</Tooltip><Popup>{t('Selected mango farm location')}<br />{location.lat.toFixed(5)}, {location.lng.toFixed(5)}</Popup></Marker></MapContainer></div>
+      <div className="pin-readout"><strong>{t('Palawan location')}</strong><span>{location.lat.toFixed(5)}° N, {location.lng.toFixed(5)}° E</span></div>
+      <p className="muted">{t('Click anywhere on the Palawan map or drag the pin. These coordinates determine the weather data and prediction location.')}</p>
+      <div className="prediction-map"><MapContainer center={center} zoom={6} minZoom={5} maxZoom={20} scrollWheelZoom className="prediction-map-canvas"><PalawanMangoAreas t={t} /><FitPalawanExtent /><MapClick onPick={pick} /><Marker position={pin} icon={icon} draggable eventHandlers={{ dragend: (event) => { const point = event.target.getLatLng(); pick([point.lat, point.lng]); } }}><Tooltip permanent direction="top" offset={[0, -10]}>{t('Selected mango farm location')}</Tooltip><Popup>{t('Selected mango farm location')}<br />{location.lat.toFixed(5)}, {location.lng.toFixed(5)}</Popup></Marker></MapContainer></div>
       {error && <p className="error">{error}</p>}<div className="prediction-navigation"><button className="button" onClick={() => { setError(''); setStep(2); }}>{t('Next: choose dates')}</button></div>
     </section>}
 

@@ -4,9 +4,9 @@ import LegalDialog from '../components/LegalDialog';
 import OrganizationChart from '../components/OrganizationChart';
 import { useTranslation } from 'react-i18next';
 
-const metrics = [['Puerto Princesa', 'Study area'], ['5 climate variables', 'Weather inputs'], ['365 days', 'Forecast period']];
+const metrics = [['Palawan Island', 'Study area'], ['5 climate variables', 'Weather inputs'], ['365 days', 'Forecast period']];
 const steps = [
-  ['01', 'Choose a place', 'Pin a location within Puerto Princesa to set the coordinates for climate data extraction.'],
+  ['01', 'Choose a place', 'Pin any location across Palawan Island to set the coordinates for local climate data extraction.'],
   ['02', 'Set the forecast dates', 'Choose any available start date. WeeWare uses the next 365 calendar days.'],
   ['03', 'Review the climate', 'See the extracted weather variables and monthly climate values for that location and period.'],
   ['04', 'Run the model', 'Get an annual infestation estimate and a suggested action from the trained LASSO model.'],
@@ -22,7 +22,7 @@ export default function Home() {
   const [policy, setPolicy] = useState(null);
   return <main className="public-home">
     <header className="public-header"><Link to="/" className="public-brand"><img src="/assets/weeware-vps-logo.png" alt=""/><span>WeeWare</span></Link></header>
-    <section className="public-hero"><div className="public-hero-shade"/><div className="public-hero-content"><span className="location-pill"><span aria-hidden="true">⌖</span> Puerto Princesa, Palawan</span><h1>WeeWare<span>Mango Pulp Weevil Prediction System</span></h1><p>Climate data and LASSO regression for annual mango pulp weevil risk planning in Puerto Princesa.</p><div className="public-hero-actions"><Link className="button" to="/signup">Create your account</Link><Link className="button public-outline" to="/login">Sign in</Link></div><a className="scroll-cue" href="#about">Explore WeeWare <span aria-hidden="true">↓</span></a></div></section>
+      <section className="public-hero"><div className="public-hero-shade"/><div className="public-hero-content"><span className="location-pill"><span aria-hidden="true">⌖</span> Palawan Island, Philippines</span><h1>WeeWare<span>Mango Pulp Weevil Prediction System</span></h1><p>Climate data and LASSO regression for annual mango pulp weevil risk planning across Palawan Island.</p><div className="public-hero-actions"><Link className="button" to="/signup">Create your account</Link><Link className="button public-outline" to="/login">Sign in</Link></div><a className="scroll-cue" href="#about">Explore WeeWare <span aria-hidden="true">↓</span></a></div></section>
     <div className="public-content">
       <section className="public-metrics" aria-label="WeeWare at a glance">{metrics.map(([value, label]) => <article key={label}><strong>{value}</strong><span>{label}</span></article>)}</section>
       <section id="about" className="public-section"><div className="section-intro"><span className="section-kicker">RESEARCH OVERVIEW</span><h2>Forecasting mango pulp weevil risk for Palawan</h2><p>WeeWare is a decision support research system created by students at Palawan National School to help growers and local teams plan monitoring for mango pulp weevil, <em>Sternochetus frigidus</em>.</p></div><div className="mission-grid"><article className="public-card"><span className="public-card-icon">✳</span><h3>Our mission</h3><p>Turn climate information and local observations into practical support for seasonal orchard monitoring.</p></article><article className="public-card"><span className="public-card-icon">◎</span><h3>Our vision</h3><p>A Palawan mango industry better prepared for pest risks through transparent, science-based forecasting.</p></article></div></section>
@@ -35,7 +35,7 @@ export default function Home() {
       <section className="public-cta"><span className="section-kicker">START WITH YOUR FORECAST</span><h2>Protect your next harvest with better planning.</h2><p>Create an account to explore the prediction workflow and join the WeeWare community.</p><Link className="button" to="/signup">Get started</Link></section>
       <p className="public-disclaimer">Predictions are research estimates for planning support. Validate field decisions with local agricultural guidance and observations.</p>
     </div>
-    <footer className="public-footer"><div className="footer-main"><Link to="/" className="public-brand"><img src="/assets/weeware-vps-logo.png" alt=""/><span>WeeWare</span></Link><p>Palawan mango farming, rooted in data.</p><div><strong>Study area</strong><span>Puerto Princesa City, Palawan, Philippines</span></div><div><strong>Research platform</strong><span>CMIP6 climate data · LASSO regression</span></div></div><div className="footer-bottom"><span>© 2026 WeeWare Research Group · Palawan National School</span><div><button type="button" onClick={() => setPolicy('terms')}>Terms of Service</button><button type="button" onClick={() => setPolicy('privacy')}>Privacy Policy</button></div></div></footer>
+    <footer className="public-footer"><div className="footer-main"><Link to="/" className="public-brand"><img src="/assets/weeware-vps-logo.png" alt=""/><span>WeeWare</span></Link><p>Palawan mango farming, rooted in data.</p><div><strong>Study area</strong><span>Palawan Island and supported nearby Palawan locations, Philippines</span></div><div><strong>Research platform</strong><span>CMIP6 climate data · LASSO regression</span></div></div><div className="footer-bottom"><span>© 2026 WeeWare Research Group · Palawan National School</span><div><button type="button" onClick={() => setPolicy('terms')}>Terms of Service</button><button type="button" onClick={() => setPolicy('privacy')}>Privacy Policy</button></div></div></footer>
     <LegalDialog type={policy} onClose={() => setPolicy(null)} />
   </main>;
 }
