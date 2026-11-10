@@ -1,0 +1,35 @@
+{
+  "report": "WeeWare_Palawan_LASSO_Retraining_Report.pdf",
+  "generated_utc": "2026-11-10T06:35:07.416972+00:00",
+  "experiment_id": "35a8782a52494c5ea97dc3f086018427",
+  "dataset_sha256": "1b252e5da8a5a49f1002d1207e62765b5a4d1ce7b7f0eee1da2ff1b87e9e64ba",
+  "model_sha256": "6f9cd60d98b7cd9d5986b69ae030b6e7a67adff0f30da63f8cddc89fb21ee24f",
+  "previous_model_sha256": "c148008dea9986cf79b55e2a6393ca362699fb26c1103c392c8e393ea135a272",
+  "live_prediction_weather": {
+    "rainfall": 2574.574129,
+    "temperature": 29.636457,
+    "humidity": 88.339952,
+    "solar": 18.141667,
+    "wind": 4.642731
+  },
+  "previous_prediction": {
+    "raw_rate": 1.810942746191388,
+    "rate": 1.810942746191388,
+    "risk": "Medium",
+    "output_max": 5.0,
+    "low_threshold": 1.5,
+    "high_threshold": 3.0
+  },
+  "retrained_prediction": {
+    "rate": 36.91,
+    "raw_rate": 36.90938994751298,
+    "risk": "Medium"
+  },
+  "images": [
+    "reports\\palawan_lasso_retraining\\images\\01_before_legacy_model_3d.png",
+    "reports\\palawan_lasso_retraining\\images\\02_during_palawan_training_3d.png",
+    "reports\\palawan_lasso_retraining\\images\\03_after_prediction_comparison_3d.png",
+    "reports\\palawan_lasso_retraining\\images\\04_validation_vs_baseline.png",
+    "reports\\palawan_lasso_retraining\\images\\05_target_scale_and_sources.png"
+  ]
+}

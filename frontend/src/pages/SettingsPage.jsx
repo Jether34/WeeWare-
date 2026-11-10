@@ -1,0 +1,106 @@
+import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
+import api, { assetUrl } from '../api';
+import { useAuth } from '../auth';
+import DatePicker from '../components/DatePicker';
+import StyledDropdown from '../components/StyledDropdown';
+
+const emptyProfile = { fullName: '', email: '', gender: '', birthday: '', address: '', phone: '', language: 'en', profilePicture: '', publicProfile: { email: false, gender: false, birthday: false, address: false, phone: false } };
+const languages = [['en', 'English'], ['tl', 'Tagalog'], ['ceb', 'Cebuano'], ['hil', 'Hiligaynon'], ['krj', 'Kinaray-a'], ['cyo', 'Kuyonon']];
+
+export default function SettingsPage() {
+  const { t, i18n } = useTranslation();
+  const { user, setUser, signOut } = useAuth();
+  const navigate = useNavigate();
+  const [profile, setProfile] = useState(emptyProfile);
+  const [file, setFile] = useState(null);
+  const [filePreview, setFilePreview] = useState('');
+  const [passwords, setPasswords] = useState({ newPassword: '', confirmPassword: '' });
+  const [notice, setNotice] = useState(''); const [error, setError] = useState(''); const [busy, setBusy] = useState(false); const [passwordBusy, setPasswordBusy] = useState(false);
+
+  async function signOutToLanding() {
+    try { await signOut(); }
+    finally { navigate('/', { replace: true }); }
+  }
+
+  useEffect(() => {
+    if (user) setProfile({ ...emptyProfile, ...user, publicProfile: { ...emptyProfile.publicProfile, ...(user.publicProfile || {}) }, birthday: user.birthday ? new Date(user.birthday).toISOString().slice(0, 10) : '' });
+  }, [user]);
+  useEffect(() => {
+    if (!file) { setFilePreview(''); return undefined; }
+    const url = URL.createObjectURL(file); setFilePreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [file]);
+  const updateProfile = (key, value) => setProfile((old) => ({ ...old, [key]: value }));
+  const updatePassword = (key, value) => setPasswords((old) => ({ ...old, [key]: value }));
+
+  async function saveProfile(event) {
+    event.preventDefault(); setBusy(true); setNotice(''); setError('');
+    try {
+      const fields = Object.fromEntries(['fullName', 'gender', 'birthday', 'address', 'phone', 'language'].map((key) => [key, profile[key] || '']));
+      const payload = { ...fields, publicProfile: { ...emptyProfile.publicProfile, ...(profile.publicProfile || {}) } };
+      let requestBody = payload;
+      let config;
+      if (file) {
+        requestBody = new FormData();
+        Object.entries(fields).forEach(([key, value]) => requestBody.append(key, value));
+        requestBody.append('publicProfile', JSON.stringify(payload.publicProfile));
+        requestBody.append('profilePicture', file);
+        // Let the browser add the multipart boundary.
+        config = {};
+      }
+      const { data } = await api.put('/users/me', requestBody, config);
+      setUser({ ...data.user, id: data.user.id || data.user._id }); setNotice(t('Profile saved.')); if (profile.language && profile.language !== i18n.resolvedLanguage) { await i18n.changeLanguage(profile.language); localStorage.setItem('weeware-language', profile.language); } setFile(null);
+    } catch (err) { setError(err.message); }
+    finally { setBusy(false); }
+  }
+  async function changePassword(event) {
+    event.preventDefault(); setPasswordBusy(true); setNotice(''); setError('');
+    try {
+      await api.put('/users/me/password', passwords);
+      setPasswords({ newPassword: '', confirmPassword: '' });
+      setNotice(t('Password changed.'));
+    }
+    catch (err) { setError(err.message); }
+    finally { setPasswordBusy(false); }
+  }
+  async function deleteAccount() {
+    if (!window.confirm(t('Permanently delete your account, prediction history, saved reports, posts, and comments?'))) return;
+    try { await api.delete('/users/me'); await signOut(); navigate('/'); }
+    catch (err) { setError(err.message); }
+  }
+
+  return <div className="page settings-page">
+    <header className="settings-heading"><div><h1 className="page-title">{t('Profile settings')}</h1><p className="page-subtitle">{t('Manage your profile, password, and account.')}</p></div>{(notice || error) && <p className={error ? 'error settings-feedback' : 'success settings-feedback'} role="status">{error || notice}</p>}</header>
+    <div className="settings-grid">
+      <form className="card settings-card profile-settings-card" onSubmit={saveProfile}>
+        <div className="settings-card-heading"><div><h2>{t('Edit profile')}</h2><p>{t('Update the information shown to other members.')}</p></div></div>
+        <div className="settings-photo-row"><img src={filePreview || assetUrl(profile.profilePicture) || '/assets/weeware.png'} alt={t('Profile photo')}/><label className="field"><span>{t('Profile photo')}</span><input type="file" accept="image/*" onChange={(event) => setFile(event.target.files?.[0] || null)}/></label></div>
+        <div className="settings-fields-grid">
+          <div className="field"><label>{t('Full name')}</label><input required maxLength="100" value={profile.fullName} onChange={(event) => updateProfile('fullName', event.target.value)}/></div>
+          <div className="field"><label>{t('Email address')}</label><input type="email" readOnly value={profile.email}/></div>
+          <div className="field"><label>{t('Gender')}</label><input value={profile.gender} onChange={(event) => updateProfile('gender', event.target.value)}/></div>
+          <div className="field date-picker-field"><label>{t('Birthday')}</label><DatePicker value={profile.birthday} min="1900-01-01" max={new Date().toISOString().slice(0, 10)} showToday={false} onChange={(birthday) => updateProfile('birthday', birthday)}/></div>
+          <div className="field"><label>{t('Phone')}</label><input value={profile.phone} onChange={(event) => updateProfile('phone', event.target.value)}/></div>
+          <div className="field settings-language-field"><label>{t('Language')}</label><StyledDropdown value={profile.language || 'en'} options={languages.map(([value, label]) => ({ value, label, code: value.toUpperCase() }))} onChange={(value) => updateProfile('language', value)} label={t('Choose language')} icon/></div>
+          <div className="field settings-address-field"><label>{t('Address')}</label><input value={profile.address} onChange={(event) => updateProfile('address', event.target.value)}/></div>
+        </div>
+        <fieldset className="profile-visibility"><legend>{t('Public profile')}</legend><p>{t('Choose which personal details other WeeWare members can see.')}</p>
+          {['email', 'gender', 'birthday', 'address', 'phone'].map((field) => <label key={field}><input type="checkbox" checked={Boolean(profile.publicProfile?.[field])} onChange={(event) => setProfile((old) => ({ ...old, publicProfile: { ...old.publicProfile, [field]: event.target.checked } }))}/><span>{t(`Show ${field} on my public profile`)}</span></label>)}
+        </fieldset>
+        <button className="button save-profile-button" disabled={busy}>{busy ? t('Saving…') : t('Save profile')}</button>
+      </form>
+
+      <form className="card settings-card password-settings-card" onSubmit={changePassword}>
+        <div className="settings-card-heading"><div><h2>{t('Change password')}</h2><p>{t('Choose a strong password you have not used before.')}</p></div></div>
+        <div className="field"><label>{t('New password')}</label><input type="password" autoComplete="new-password" required minLength="8" value={passwords.newPassword} onChange={(event) => updatePassword('newPassword', event.target.value)}/></div>
+        <div className="field"><label>{t('Confirm new password')}</label><input type="password" autoComplete="new-password" required minLength="8" value={passwords.confirmPassword} onChange={(event) => updatePassword('confirmPassword', event.target.value)}/></div>
+        <button className="button secondary" disabled={passwordBusy}>{passwordBusy ? t('Updating…') : t('Update password')}</button>
+      </form>
+
+      <section className="card settings-card delete-settings-card"><div><h2>{t('Delete account')}</h2><p>{t('This permanently removes your profile, messages, predictions, saved reports, posts, and comments.')}</p></div><button className="button danger" onClick={deleteAccount}>{t('Delete my account')}</button></section>
+    </div>
+    <button type="button" className="button secondary mobile-settings-signout" onClick={signOutToLanding}>{t('signOut')}</button>
+  </div>;
+}

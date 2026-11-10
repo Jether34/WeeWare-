@@ -1,0 +1,84 @@
+{
+  "id": "4aa8f6fd4a6c44788649954007474811",
+  "state": "completed",
+  "filename": "WEEWARE FINAL DATASET 2014-2025.csv",
+  "rows": 12,
+  "year_start": 2014,
+  "year_end": 2025,
+  "uploaded_by": "6ad4639e80e8cb756af25a9b",
+  "created_at": "2026-10-23T17:04:45.996740+00:00",
+  "config": {
+    "alpha_mode": "auto",
+    "alpha": 0.1,
+    "cv_folds": 5,
+    "max_iter": 100000,
+    "fit_intercept": true,
+    "features": [
+      "rainfall",
+      "temperature",
+      "humidity",
+      "solar",
+      "wind"
+    ],
+    "prediction": {
+      "min": 0.0,
+      "max": 5.0,
+      "low_threshold": 1.5,
+      "high_threshold": 3.0
+    }
+  },
+  "alpha": 0.15690096574012966,
+  "training_mae": 0.6108879692499999,
+  "training_rmse": 0.7762085213830257,
+  "validation": {
+    "method": "leave-one-year-out",
+    "mae": 0.7577069872207546,
+    "rmse": 0.9938465523822358,
+    "baseline_mae": 0.6664232391818182,
+    "baseline_rmse": 0.8467729324178461,
+    "predictions": [
+      1.900945,
+      1.804185,
+      1.76699,
+      1.811213,
+      1.82546,
+      1.792593,
+      1.753434,
+      1.676592,
+      2.98427,
+      1.835467,
+      1.936918,
+      1.73865
+    ],
+    "observed": [
+      0.820914637,
+      1.885276208,
+      2.294428042,
+      1.80796677,
+      1.651255756,
+      2.01278496,
+      2.443535903,
+      3.288797533,
+      0.953792711,
+      1.541178658,
+      0.425220288,
+      2.606161805
+    ],
+    "years": [
+      2014,
+      2015,
+      2016,
+      2017,
+      2018,
+      2019,
+      2020,
+      2021,
+      2022,
+      2023,
+      2024,
+      2025
+    ],
+    "note": "Out-of-sample leave-one-year-out validation compared with a training-mean baseline."
+  },
+  "active": false
+}

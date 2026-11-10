@@ -1,0 +1,9 @@
+import { useTranslation } from 'react-i18next';
+
+const actions={
+  Low:{className:'risk-low',summary:'Keep preventive routines in place and check trees regularly.',items:['Inspect developing fruit and fallen fruit at least weekly.','Remove and safely dispose of damaged or infested fruit.','Keep orchard records of weather and observed damage.','Use locally recommended cultural controls.']},
+  Medium:{className:'risk-medium',summary:'Increase observation frequency and strengthen integrated pest management.',items:['Inspect fruit more frequently during susceptible growth stages.','Remove and destroy infested and fallen fruit promptly.','Review sanitation and harvest timing with local extension guidance.','Record pest observations to compare with the next climate window.']},
+  High:{className:'risk-high',summary:'Act promptly with locally appropriate integrated pest management.',items:['Check affected blocks and confirm field symptoms before intervention.','Remove infested fruit and improve orchard sanitation.','Consult a local agricultural specialist on control options and timing.','Document interventions and continue close monitoring.']},
+};
+export default function ActionsPage(){const {t}=useTranslation();return <div className="page"><h1 className="page-title">{t('Suggested actions')}</h1><p className="page-subtitle">{t('Use the model risk category to guide monitoring. Confirm field conditions and local agricultural advice before taking control measures.')}</p><div className="grid grid-3">{Object.entries(actions).map(([risk,data])=><article className="card actions-card" key={risk}><span className={`pill ${data.className}`}>{t(risk)} {t('risk')}</span><h2>{t(risk)} {t('risk plan')}</h2><p className="muted">{t(data.summary)}</p><ul>{data.items.map(item=><li key={item}>{t(item)}</li>)}</ul></article>)}</div></div>}
+

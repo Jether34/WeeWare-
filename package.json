@@ -1,0 +1,15 @@
+{
+  "name": "weeware",
+  "version": "2.0.0",
+  "private": true,
+  "workspaces": ["frontend", "backend"],
+  "scripts": {
+    "dev": "concurrently -n web,api,ml -c green,blue,yellow \"npm run dev -w frontend\" \"npm run dev -w backend\" \"node scripts/run-ml.js\"",
+    "build": "npm run build -w frontend",
+    "start:api": "npm start -w backend",
+    "start:ml": "node scripts/run-ml.js"
+  },
+  "devDependencies": { "concurrently": "^9.1.2" },
+  "engines": { "node": ">=20" }
+}
+

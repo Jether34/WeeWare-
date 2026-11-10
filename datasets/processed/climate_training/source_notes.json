@@ -1,0 +1,31 @@
+﻿{
+    "weather_source":  "NASA POWER Monthly Point API",
+    "weather_source_url":  "https://power.larc.nasa.gov/api/temporal/monthly/point",
+    "weather_source_docs":  "https://power.larc.nasa.gov/docs/services/api/temporal/monthly/",
+    "weather_variables":  {
+                              "rainfall":  "PRECTOTCORR, converted from mm/day to monthly/annual mm",
+                              "temperature":  "T2M, Â°C",
+                              "humidity":  "RH2M, %",
+                              "solar":  "ALLSKY_SFC_SW_DWN, MJ/mÂ²/day",
+                              "wind":  "WS10M, m/s"
+                          },
+    "coordinate_source":  "OpenStreetMap Nominatim municipality/town centres; approximation, not farm coordinates",
+    "coordinate_source_url":  "https://nominatim.openstreetmap.org/",
+    "cmip6_comparison":  "Only exact overlapping months are paired. Bias, MAE, RMSE and correlation are descriptive; CMIP6 monthly climate outputs are not expected to reproduce observed weather month-for-month.",
+    "target_units":  "New input infestation rates explicitly marked decimal are converted to percent by multiplying by 100; existing annual WeeWare targets are retained on their existing 0-5 numeric percentage-point scale.",
+    "target_aggregation":  "Workbook observations use summed damaged volume divided by summed estimated harvest. CSV observations without harvest denominators use the unweighted mean of available sampled-month rates. Source rows are preserved in palawan_monthly_infestation_weather.csv.",
+    "training_readiness":  "The prepared 100-row dataset has been used to fit the active fixed-alpha LASSO model for Palawan. Validation scores are approximate: many locations reuse the same infestation label across years, and target collection methods differ. The full report and experiment record describe these limits.",
+    "municipality_coverage":  "NASA POWER annual weather is assembled for all 23 Palawan municipalities listed by PSA PSGC plus Puerto Princesa City. Narra has weather rows but no infestation label in the supplied files, so Narra is excluded from supervised training rows.",
+    "caution":  "Target methods/units differ between the legacy annual dataset and new area/month records. Review the target definitions and the annual training output before fitting one model. NASA POWER spatial resolution differs by parameter; municipality centres and coarse CMIP6 cells may repeat values across locations.",
+    "outputs":  [
+                    "palawan_retraining_dataset.csv",
+                    "palawan_monthly_infestation_weather.csv",
+                    "palawan_lasso_training_annual.csv",
+                    "palawan_municipality_annual_weather.csv",
+                    "nasa_power_monthly_weather.csv",
+                    "palawan_location_coordinates.csv",
+                    "legacy_training_vs_nasa_power.csv",
+                    "cmip6_nasa_monthly_pairs.csv",
+                    "cmip6_nasa_comparison_summary.csv"
+                ]
+}

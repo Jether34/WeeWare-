@@ -1,0 +1,15 @@
+node_modules/
+frontend/dist/
+backend/uploads/*
+!backend/uploads/.gitkeep
+backend/.env
+ml-service/.venv/
+ml-service/__pycache__/
+ml-service/.pytest_cache/
+*.log
+.analysis/
+.runtime/
+datasets/climate/generated/
+Thumbs.db
+Desktop.ini
+

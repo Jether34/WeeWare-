@@ -1,0 +1,85 @@
+{
+  "id": "e90b58129bab496d8d3ee604055e8a82",
+  "state": "completed",
+  "filename": "WEEWARE FINAL DATASET 2014-2025.csv",
+  "rows": 12,
+  "year_start": 2014,
+  "year_end": 2025,
+  "uploaded_by": null,
+  "created_at": "2026-10-23T17:13:38.967537+00:00",
+  "config": {
+    "alpha_mode": "auto",
+    "alpha": 0.1,
+    "cv_folds": 5,
+    "max_iter": 100000,
+    "fit_intercept": true,
+    "features": [
+      "rainfall",
+      "temperature",
+      "humidity",
+      "solar",
+      "wind"
+    ],
+    "prediction": {
+      "min": 0.0,
+      "max": 5.0,
+      "low_threshold": 1.5,
+      "high_threshold": 3.0
+    }
+  },
+  "alpha": 0.05,
+  "training_mae": 0.6152792955045725,
+  "training_rmse": 0.7500952906566112,
+  "validation": {
+    "method": "leave-one-year-out",
+    "mae": 0.9076186797032856,
+    "rmse": 1.105564973884869,
+    "baseline_mae": 0.6664232391818182,
+    "baseline_rmse": 0.8467729324178461,
+    "predictions": [
+      2.013285,
+      1.431447,
+      1.240806,
+      1.849323,
+      1.81917,
+      1.712302,
+      1.574539,
+      1.60314,
+      2.98427,
+      1.868218,
+      2.081459,
+      1.492723
+    ],
+    "observed": [
+      0.820914637,
+      1.885276208,
+      2.294428042,
+      1.80796677,
+      1.651255756,
+      2.01278496,
+      2.443535903,
+      3.288797533,
+      0.953792711,
+      1.541178658,
+      0.425220288,
+      2.606161805
+    ],
+    "years": [
+      2014,
+      2015,
+      2016,
+      2017,
+      2018,
+      2019,
+      2020,
+      2021,
+      2022,
+      2023,
+      2024,
+      2025
+    ],
+    "note": "Out-of-sample leave-one-year-out validation compared with a training-mean baseline."
+  },
+  "selection_note": "Automatic LASSO used alpha 0.05 after cross-validation selected an intercept-only model.",
+  "active": false
+}
