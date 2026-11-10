@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const MAX_INFESTATION_RATE_PERCENT = 100;
 
 const predictionSchema = new mongoose.Schema({
   user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
@@ -9,7 +10,7 @@ const predictionSchema = new mongoose.Schema({
   location: { lat: Number, lng: Number, name: String },
   weather: { rainfall: Number, temperature: Number, humidity: Number, solar: Number, wind: Number },
   weatherSources: { type: mongoose.Schema.Types.Mixed, default: {} },
-  infestationRate: { type: Number, required: true, min: 0, max: 100 },
+  infestationRate: { type: Number, required: true, min: 0, max: MAX_INFESTATION_RATE_PERCENT },
   rawRate: Number,
   confidenceLevel: Number,
   riskCategory: { type: String, enum: ['Low', 'Medium', 'High'] },
