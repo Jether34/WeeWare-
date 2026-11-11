@@ -165,11 +165,11 @@ setFont(true, 30, '#ffffff');
 doc.text('End-to-end system\ndocumentation', 54, 105, { width: 495, lineGap: 4 });
 setFont(false, 13, '#d8e9de');
 doc.text('Pages, prediction flow, API, services, and user controls', 56, 193, { width: 480, lineGap: 4 });
-doc.image(path.join(SHOTS, '01-home.png'), 175, 245, { fit: [262, 465] });
+doc.image(path.join(SHOTS, '01-home.png'), 185, 245, { fit: [242, 430] });
 setFont(true, 10, '#ffffff');
-doc.text('Mango pulp weevil monitoring across Palawan', 56, 727, { width: 500, align: 'center' });
+doc.text('Mango pulp weevil monitoring across Palawan', 56, 690, { width: 500, align: 'center' });
 setFont(false, 9, '#c4d9cc');
-doc.text('Prepared 11 November 2026  |  Repository version 2.0', 56, 750, { width: 500, align: 'center' });
+doc.text('Prepared 11 November 2026  |  Repository version 2.0', 56, 710, { width: 500, align: 'center' });
 
 section('How the pieces fit together', '01  /  Architecture');
 para('WeeWare is a responsive React application for reviewing annual climate patterns and producing a climate-informed mango pulp weevil screening estimate. A normal forecast crosses four service boundaries: the browser, Express API, MongoDB, and the Python climate/model service.', { size: 10.5 });
@@ -179,8 +179,8 @@ const boxes = [
   { x: 238, y: 190, w: 145, h: 88, title: 'Express API', body: 'Auth · validation\nrecords · reports' },
   { x: 424, y: 190, w: 145, h: 88, title: 'MongoDB', body: 'Accounts · forecasts\nforum · messages' },
   { x: 238, y: 345, w: 145, h: 88, title: 'FastAPI service', body: 'Climate assembly\nLASSO prediction' },
-  { x: 52, y: 500, w: 220, h: 78, title: 'CMIP6 NetCDF', body: 'Monthly variables · nearest climate grid' },
-  { x: 310, y: 500, w: 220, h: 78, title: 'Active model artifact', body: 'StandardScaler + LASSO pipeline' },
+  { x: 52, y: 468, w: 220, h: 78, title: 'CMIP6 NetCDF', body: 'Monthly variables · nearest climate grid' },
+  { x: 310, y: 468, w: 220, h: 78, title: 'Active model artifact', body: 'StandardScaler + LASSO pipeline' },
 ];
 boxes.forEach((b) => {
   doc.roundedRect(b.x, b.y, b.w, b.h, 9).fillAndStroke(colors.pale, colors.line);
@@ -193,12 +193,12 @@ function arrow(x1, y1, x2, y2, label) {
   doc.moveTo(x2, y2).lineTo(x2 - 7 * Math.cos(angle - 0.45), y2 - 7 * Math.sin(angle - 0.45)).lineTo(x2 - 7 * Math.cos(angle + 0.45), y2 - 7 * Math.sin(angle + 0.45)).fill(colors.green);
   if (label) { setFont(false, 7.7, colors.gray); doc.text(label, Math.min(x1, x2), Math.min(y1, y2) - 13, { width: Math.abs(x2 - x1) + 10, align: 'center' }); }
 }
-arrow(197, 234, 238, 234, 'HTTPS / REST');
-arrow(383, 234, 424, 234, 'persist');
-arrow(310, 278, 310, 345, 'weather + prediction');
-arrow(272, 539, 285, 433, 'monthly fields');
-arrow(420, 539, 360, 433, 'five features');
-doc.y = 610;
+arrow(197, 234, 238, 234);
+arrow(383, 234, 424, 234);
+arrow(310, 278, 310, 345);
+arrow(272, 507, 285, 433);
+arrow(420, 507, 360, 433);
+doc.y = 558;
 subhead('Local development addresses');
 table(['Service', 'Local default', 'What it does'], [
   ['Vite / React', 'localhost:5180', 'Mobile/desktop development client; proxies API, uploads, and Socket.IO.'],
@@ -367,20 +367,22 @@ figurePage('Model view: active LASSO response surface', 'The surface is conditio
 figurePage('Validation view: estimates for years left out of training', 'Points near the equal-value line have smaller errors. Color shows absolute error in percentage points. RMSE summarizes the full held-out set and is not the error for every individual forecast.', path.join(visualDir, '3d_held_out_predictions.png'));
 figurePage('Validation comparison: held-out years and locations', 'Lower is better. Year-held-out LASSO RMSE is 17.11 points. For location-held-out rows, LASSO RMSE is 20.41 versus 19.46 for the simple mean baseline, highlighting the main concern for predictions at places not represented in training.', path.join(visualDir, '3d_validation_scores.png'));
 
-section('Mobile screenshot gallery', '13  /  Captured screens');
-para('The following direct captures are from the local Android virtual device at 1080 x 1920. The page captions identify the main purpose of each screen. Examples in account settings, history, forum, chat, and dashboards are synthetic demonstration data in the isolated documentation database.', { size: 9.3 });
-
-for (const [filename, title, caption] of screenshots) {
+const galleryIntro = 'These direct captures come from the local Android virtual device at 1080 x 1920. Examples in account settings, history, forum, chat, and dashboards use synthetic demonstration data.';
+for (const [index, [filename, title, caption]] of screenshots.entries()) {
   const imagePath = path.join(SHOTS, filename);
   if (!fs.existsSync(imagePath)) throw new Error(`Screenshot is missing: ${imagePath}`);
   doc.addPage();
   setFont(true, 8, colors.green);
-  doc.text('MOBILE SCREEN CAPTURE', 44, 35, { characterSpacing: 1.1 });
+  doc.text(index === 0 ? '13  /  CAPTURED SCREENS' : 'MOBILE SCREEN CAPTURE', 44, 35, { characterSpacing: 1.1 });
   setFont(true, 16, colors.deep);
   doc.text(title, 44, 50, { width: 524 });
-  const imageTop = 83;
+  if (index === 0) {
+    setFont(false, 8.8, colors.gray);
+    doc.text(galleryIntro, 44, 75, { width: 524, lineGap: 2 });
+  }
+  const imageTop = index === 0 ? 106 : 83;
   const imageMeta = doc.openImage(imagePath);
-  const scale = Math.min(524 / imageMeta.width, 610 / imageMeta.height);
+  const scale = Math.min(524 / imageMeta.width, (index === 0 ? 587 : 610) / imageMeta.height);
   const imageWidth = imageMeta.width * scale;
   const imageHeight = imageMeta.height * scale;
   const imageX = (doc.page.width - imageWidth) / 2;
@@ -389,21 +391,25 @@ for (const [filename, title, caption] of screenshots) {
   doc.text(`${caption}\nFile: screenshots/${filename}`, 54, 705, { width: 504, align: 'center', lineGap: 2 });
 }
 
-section('Client-provided system screenshots', '14  /  Supplied images');
-para('These screenshots were supplied in the sibling `reports/system images` folder and are included here as redacted copies. Personal name, email, phone, and address fields are masked in two images before they enter the repository.', { size: 9.2 });
-for (const [filename, title, caption] of clientScreens) {
+const clientScreensIntro = 'These screenshots were supplied in the sibling `reports/system images` folder. Personal name, email, phone, and address fields are masked in two images before inclusion.';
+for (const [index, [filename, title, caption]] of clientScreens.entries()) {
   const imagePath = path.join(SHOTS, 'client-supplied', filename);
   if (!fs.existsSync(imagePath)) throw new Error(`Client screenshot is missing: ${imagePath}`);
   doc.addPage();
   setFont(true, 8, colors.green);
-  doc.text('CLIENT-PROVIDED SCREENSHOT', 44, 35, { characterSpacing: 1.1 });
+  doc.text(index === 0 ? '14  /  SUPPLIED IMAGES' : 'CLIENT-PROVIDED SCREENSHOT', 44, 35, { characterSpacing: 1.1 });
   setFont(true, 14, colors.deep);
   doc.text(title, 44, 50, { width: 524 });
+  if (index === 0) {
+    setFont(false, 8.8, colors.gray);
+    doc.text(clientScreensIntro, 44, 73, { width: 524, lineGap: 2 });
+  }
   const imageMeta = doc.openImage(imagePath);
-  const scale = Math.min(524 / imageMeta.width, 570 / imageMeta.height);
+  const imageTop = index === 0 ? 103 : 86;
+  const scale = Math.min(524 / imageMeta.width, (index === 0 ? 553 : 570) / imageMeta.height);
   const imageWidth = imageMeta.width * scale;
   const imageHeight = imageMeta.height * scale;
-  doc.image(imagePath, (doc.page.width - imageWidth) / 2, 86, { width: imageWidth, height: imageHeight });
+  doc.image(imagePath, (doc.page.width - imageWidth) / 2, imageTop, { width: imageWidth, height: imageHeight });
   setFont(false, 8.5, colors.gray);
   doc.text(`${caption}\nFile: screenshots/client-supplied/${filename}`, 54, 690, { width: 504, align: 'center', lineGap: 2 });
 }
