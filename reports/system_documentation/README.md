@@ -8,9 +8,15 @@
 
 - [End-to-end system guide (PDF)](WeeWare_System_End_to_End_Guide.pdf)
 - [Mobile screenshot gallery](screenshots/)
+- [Client-supplied screenshots (personal fields redacted)](screenshots/client-supplied/)
+- [3D model and data visualizations](visualizations/)
 - [PDF generator](generate_system_guide.js)
+- [3D visualization generator](generate_visualizations.py)
+- [Visualization Python dependencies](requirements-visualizations.txt)
 
 The screenshots were captured from the running application in the local Android virtual device (`MathevoPhone`, 1080 x 1920 display). The local instance used a separate MongoDB database and synthetic demonstration accounts/content. The screenshots are not from client accounts or the live VPS. Some pages show sample data created for this guide.
+
+The additional client screenshots came from the sibling `reports/system images` folder. Copies included here have personal name, email, phone, and address fields redacted where visible.
 
 ## System at a glance
 
@@ -58,6 +64,8 @@ For each requested calendar month, the reader searches the configured monthly Ne
 Within a 365-day window, rainfall is accumulated and the other four variables are averaged with the number of represented days as weights. The displayed monthly charts are summaries of this same selected window.
 
 The active retraining evidence in the repository records 100 annual location rows, 23 Palawan locations and years 2014–2025. The model is a `StandardScaler` + LASSO pipeline with alpha 0.05 and a 0–100 target scale. Its leave-one-year-out MAE is 15.00 percentage points; this is an exploratory validation score on held-out years, not a guarantee of accuracy. The historical CMIP6 archive is incomplete and mixes historical, scenario, and decadal forecast files. Some future inputs therefore use fallbacks. Municipality-centre weather estimates are not farm measurements.
+
+The new model was trained with annual NASA POWER municipality-center weather estimates paired with the supplied infestation records. CMIP6 was not part of that training table; the live prediction service uses available CMIP6 weather and labeled fallback values for prediction inputs.
 
 ## Application page directory
 
@@ -137,7 +145,12 @@ MongoDB holds application records; the model artifact and NetCDF files are files
 - The active LASSO prediction is an estimate based on five climate values. It is not a calibrated probability, a causal claim, or a farm-specific diagnosis.
 - CMIP6 files use coarse nearest-grid extraction. The available files mix models/experiments and have incomplete temporal overlap; the service labels its fallbacks.
 - Annual weather used for the Palawan training rows is estimated at municipality centers rather than measured at each farm.
-- The training set is small, some infestation labels repeat across years, and source surveys have different definitions/collection methods. The reported validation MAE is exploratory.
+- The new training table has 100 annual rows from 23 locations across 12 years (2014–2025). Sixty-five rows reuse infestation labels at the same location across years; these are not 65 independent new field observations.
+- The target values combine three aggregation approaches: 12 earlier annual entries, 36 damage-volume/estimated-harvest ratios, and 52 unweighted means of sampled monthly rates. This target inconsistency is a major documented limitation.
+- Annual training weather comes from NASA POWER monthly point values assembled for municipality-center coordinates. It is not farm-level or necessarily station-observed weather. Prediction weather is assembled separately from available CMIP6 NetCDF data, with labeled training-climatology fallbacks for gaps.
+- Leave-one-year-out MAE/RMSE are 15.00/17.11 percentage points. Leave-one-location-out scores are 17.76/20.41; the location-held-out RMSE is higher than the simple mean baseline (19.46). This warns that transfer to unseen locations is uncertain.
+- The strongest evidence points to few independent infestation observations, mixed/reused labels, coarse location weather, and omitted orchard/pest factors. The available validation cannot prove one sole cause of error.
+- Thirty years is a common climatological-normal period, not a hard requirement in the current LASSO training code. More independent infestation observations paired with weather by location and year would improve the evidence base; repeated labels do not substitute for new observations.
 - Saved predictions retain the input weather/source labels and model metadata so the generated result can be reviewed later.
 - The API service currently has no Express Swagger UI. Use source route definitions and `/api/health`; FastAPI's `/docs` lists the climate/model contract.
 
@@ -183,3 +196,25 @@ Every image below is a direct Android virtual-device screen capture; the browser
 | `24-prediction-result.png` | Estimate, risk class, and result context. |
 | `25-result-controls.png` | Save, PDF download, history, and restart controls. |
 | `26-forum-image-zoom.png` | Full-screen photo viewer with navigation and zoom controls. |
+
+## Client-provided screenshots
+
+All 11 images supplied in `reports/system images` are included in the PDF and copied into `screenshots/client-supplied/`. The settings and forgot-password screenshots had visible personal contact fields, so the report copies mask those values. The forgot-password image shows a request in progress; it is not evidence that delivery completed.
+
+## 3D training, data, model, and validation figures
+
+- `visualizations/3d_training_data.png`: annual rainfall, temperature, and infestation labels by location-year, colored by year.
+- `visualizations/3d_infestation_label_sources.png`: number of training rows from each target aggregation approach.
+- `visualizations/3d_lasso_response_surface.png`: active LASSO output while rainfall and temperature vary; other features are held at dataset medians.
+- `visualizations/3d_held_out_predictions.png`: observed versus held-out-year estimates, colored by absolute error.
+- `visualizations/3d_validation_scores.png`: MAE/RMSE comparisons for held-out years and locations against the training-mean baseline.
+
+The PDF also includes the existing 3D training-process figure. A 3D rendering is a way to inspect the recorded data/model; it does not increase sample size, establish causation, or make the model more accurate.
+
+To rebuild the 3D plots, install `requirements-visualizations.txt` in the Python environment that can load the active model artifact, then run `python reports/system_documentation/generate_visualizations.py` from the repository root. To rebuild the PDF afterward, run `node reports/system_documentation/generate_system_guide.js` from the repository root.
+
+## Password-reset email: diagnosis and change
+
+The prior API route swallowed Nodemailer exceptions and still returned HTTP 200 with a generic “check your inbox” response. That caused the frontend to report success even when the SMTP provider rejected the message. The route now checks SMTP availability and validates the reset-page URL before looking up an account and returns the same HTTP 503 for every address if the mail service or link configuration is unavailable. If a send fails after the check, it removes the unusable token (or restores the previous valid reset challenge), logs the provider error, and keeps the account response generic to avoid email enumeration. The frontend displays the service-wide API error.
+
+This checkout has no `backend/.env`, so no local SMTP credentials are present and real delivery cannot be demonstrated here. The deployed API still needs protected runtime values for `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM_EMAIL`, and `FRONTEND_URL`. Use an authorized sender and the production website origin. The same successful response covers unknown accounts and reset requests, so it does not prove delivery. A provider may accept a message that filtering or a later bounce keeps out of the inbox.

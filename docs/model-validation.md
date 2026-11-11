@@ -6,6 +6,8 @@ The active model was trained from `datasets/processed/climate_training/palawan_r
 
 The training run is recorded as experiment `35a8782a52494c5ea97dc3f086018427`. It uses a StandardScaler + LASSO pipeline with fixed alpha 0.05 and a 0-100 output scale. The archived previous artifact is `ml-service/models/lasso_weevil_model.pre-retrain.joblib`; the active artifact is `ml-service/models/lasso_weevil_model.joblib`.
 
+The infestation target is not fully uniform: the prepared data inventory reports 12 rows from earlier annual labels, 36 rows calculated as damaged amount divided by estimated harvest, and 52 rows using an unweighted average of sampled monthly rates. In addition, 65 annual records reuse a location's infestation label across years. Weather uses NASA POWER values at municipality-center coordinates, not farm or necessarily station measurements. These factors limit the independence and comparability of the target labels.
+
 Training-set MAE was 14.09 percentage points and RMSE was 16.16. These are in-sample figures and are not forecast accuracy.
 
 ## Validation
@@ -20,6 +22,10 @@ The experiment uses leave-one-year-out (LOYO) validation: each year is held out 
 | Held-out location mean baseline | 18.59 | 19.46 |
 
 The yearly holdout is modestly better than its baseline on this dataset. The held-out-location RMSE is worse than its baseline. These scores are uncertain because 65 records reuse an infestation label at the same location across years, and the label sources use mixed aggregation methods. They should not be read as a guarantee that weather alone predicts future infestation accurately.
+
+There is no universal 30-year minimum for this LASSO implementation. Thirty years is commonly used to define climatological normals; a stronger infestation model needs more independent infestation observations paired with weather at the same locations and years. More duplicated annual labels alone would not add equivalent evidence.
+
+The validation pattern points to limited independent data, mixed/reused infestation labels, coarse municipality-level weather, and omitted orchard/pest conditions as important constraints. It cannot establish one single cause for forecast error. In particular, location-held-out RMSE exceeds the simple baseline, so transfer to a location absent from the training rows remains uncertain.
 
 ## Prediction comparison
 

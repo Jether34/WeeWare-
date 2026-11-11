@@ -6,7 +6,7 @@ const User = require('../models/User');
 const AuthChallenge = require('../models/AuthChallenge');
 const env = require('../config/env');
 const { requireAuth } = require('../middleware/auth');
-const { sendSignupCode, sendPasswordReset } = require('../services/mailer');
+const { sendSignupCode, sendPasswordReset, verifyEmailTransport } = require('../services/mailer');
 
 const router = express.Router();
 const emailPattern = /^\S+@\S+\.\S+$/;
@@ -106,22 +106,52 @@ router.post('/password/forgot', async (req, res, next) => {
   try {
     const email = String(req.body.email || '').trim().toLowerCase();
     if (!emailPattern.test(email)) return res.json(generic);
+    try {
+      // Run the same provider-availability check before any account lookup so
+      // this service-wide error cannot reveal whether an address is registered.
+      await verifyEmailTransport();
+    } catch (error) {
+      console.error('[auth] password reset mail transport unavailable:', error.code || error.responseCode || error.message);
+      return res.status(503).json({ success: false, message: 'Password reset email is temporarily unavailable. Please try again later.' });
+    }
+    let resetPageUrl;
+    try {
+      resetPageUrl = new URL('/reset-password', env.frontendUrl);
+      if (!['http:', 'https:'].includes(resetPageUrl.protocol)) throw new Error('FRONTEND_URL must use HTTP or HTTPS.');
+    } catch (error) {
+      console.error('[auth] password reset link origin is invalid:', error.message);
+      return res.status(503).json({ success: false, message: 'Password reset email is temporarily unavailable. Please try again later.' });
+    }
     const user = await User.findOne({ email }).select('_id email');
     if (!user) return res.json(generic);
-    const existing = await AuthChallenge.findOne({ email, purpose: 'password_reset' });
-    if (existing && Date.now() - existing.lastSentAt.getTime() < 30000) return res.json(generic);
+    const existing = await AuthChallenge.findOne({ email, purpose: 'password_reset' }).lean();
+    if (existing?.lastSentAt && Date.now() - new Date(existing.lastSentAt).getTime() < 30000) return res.json(generic);
     const token = crypto.randomBytes(32).toString('base64url');
     const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
     await AuthChallenge.findOneAndUpdate({ email, purpose: 'password_reset' }, {
       email, purpose: 'password_reset', codeHash: '', tokenHash, payload: null, attempts: 0, lastSentAt: new Date(), expiresAt: new Date(Date.now() + 30 * 60 * 1000),
     }, { upsert: true, new: true, setDefaultsOnInsert: true });
-    const link = new URL('/reset-password', env.frontendUrl);
+    const link = resetPageUrl;
     link.searchParams.set('email', email); link.searchParams.set('token', token);
-    await sendPasswordReset(email, link.toString());
+    try {
+      await sendPasswordReset(email, link.toString());
+    } catch (error) {
+      // Do not leave an unusable token behind, and preserve a prior valid link
+      // if this resend failed after replacing its challenge.
+      try {
+        if (existing) {
+          const { _id, __v, createdAt, updatedAt, ...previousChallenge } = existing;
+          await AuthChallenge.updateOne({ _id: existing._id, tokenHash }, { $set: previousChallenge });
+        } else await AuthChallenge.findOneAndDelete({ email, purpose: 'password_reset', tokenHash });
+      } catch (rollbackError) {
+        console.error('[auth] password reset challenge cleanup failed:', rollbackError.code || rollbackError.message);
+      }
+      console.error('[auth] password reset email delivery failed:', error.code || error.responseCode || error.message);
+      return res.json(generic);
+    }
     res.json(generic);
   } catch (error) {
-    console.error('[auth] password reset email could not be sent:', error.message);
-    res.json(generic);
+    next(error);
   }
 });
 

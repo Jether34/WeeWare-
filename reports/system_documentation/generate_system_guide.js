@@ -38,6 +38,20 @@ const screenshots = [
   ['26-forum-image-zoom.png', 'Forum photo viewer', 'Full-screen media viewer with previous/next, zoom in/out, and close controls.'],
 ];
 
+const clientScreens = [
+  ['01-location-map.png', 'Client screenshot: pinned map location', 'Shows a selected Palawan map point. A pin identifies an approximate locality, not a farm boundary.'],
+  ['02-prediction-history.png', 'Client screenshot: prediction history', 'Shows saved forecast history and report controls.'],
+  ['03-public-home.png', 'Client screenshot: public home page', 'Public landing page and application overview.'],
+  ['04-sign-in.png', 'Client screenshot: sign in', 'Sign-in layout.'],
+  ['05-create-account.png', 'Client screenshot: create account', 'Signup form and account setup.'],
+  ['06-prediction-map-step.png', 'Client screenshot: location step', 'Palawan map, coordinates, and prediction wizard control.'],
+  ['07-community-forum.png', 'Client screenshot: community forum', 'Forum composition and post media.'],
+  ['08-messages.png', 'Client screenshot: messages', 'Group/direct message view.'],
+  ['09-ai-assistant.png', 'Client screenshot: AI assistant', 'Assistant conversation view.'],
+  ['10-settings-redacted.png', 'Client screenshot: settings (personal fields redacted)', 'Email, name, phone, and address values are masked in this report copy.'],
+  ['11-forgot-password-redacted.png', 'Client screenshot: reset request (email redacted)', 'Shows the reset request in progress; it does not verify that email was delivered.'],
+];
+
 const doc = new PDFDocument({ size: 'LETTER', margin: 44, bufferPages: true, info: {
   Title: 'WeeWare System End-to-End Guide', Author: 'WeeWare project documentation', Subject: 'System design, pages, API, services, and controls',
 } });
@@ -84,6 +98,21 @@ function card(title, text) {
   setFont(false, 9.3, colors.gray);
   doc.text(text, 48, doc.y + 1, { width: 510, lineGap: 2.5, paragraphGap: 7 });
   doc.moveDown(0.25);
+}
+function figurePage(title, caption, imagePath, label = '3D SYSTEM VISUALIZATION') {
+  if (!fs.existsSync(imagePath)) throw new Error(`Figure is missing: ${imagePath}`);
+  doc.addPage();
+  setFont(true, 8, colors.green);
+  doc.text(label, 44, 35, { characterSpacing: 1.1 });
+  setFont(true, 15, colors.deep);
+  doc.text(title, 44, 50, { width: 524 });
+  const imageMeta = doc.openImage(imagePath);
+  const scale = Math.min(524 / imageMeta.width, 535 / imageMeta.height);
+  const imageWidth = imageMeta.width * scale;
+  const imageHeight = imageMeta.height * scale;
+  doc.image(imagePath, (doc.page.width - imageWidth) / 2, 86, { width: imageWidth, height: imageHeight });
+  setFont(false, 8.7, colors.gray);
+  doc.text(caption, 54, 650, { width: 504, align: 'center', lineGap: 2.5 });
 }
 function table(headers, rows, widths, opts = {}) {
   const x0 = 44;
@@ -209,7 +238,14 @@ card('Prediction output', 'The active model uses a 0–100 infestation-rate scal
 card('Validation evidence', 'Leave-one-year-out validation holds out all locations from one year at a time, fits on the other years, and compares predictions with held-out labels. The recorded MAE is 15.00 percentage points; the simple training-mean baseline is 17.73. The held-out-location LASSO MAE is 17.76. This is exploratory evidence, not a production guarantee.');
 card('Interpretation limits', 'The dataset is modest; some labels repeat across years and survey definitions differ. Weather rows approximate municipality centers rather than farms. Do not interpret the output as a calibrated probability, causal effect, or field diagnosis. See `docs/model-validation.md` and `docs/data-inventory.md` for experiment and source detail.');
 
-section('Page directory', '05  /  Interface');
+section('Password reset: delivery flow and root cause', '05  /  Email troubleshooting');
+para('The forgot-password page posts the account email to `POST /api/auth/password/forgot`. For privacy, unknown addresses receive the same generic response as known addresses. For a known account, Express generates a cryptographically random one-time token, stores only its SHA-256 hash with a 30-minute expiry, builds a link from `FRONTEND_URL`, and asks Nodemailer to send it through the configured SMTP server.', { size: 9.5 });
+card('Root cause found in the application code', 'When SMTP sending failed, the route logged the exception but still returned HTTP 200 with the generic “check your inbox” message. The browser therefore showed success even when no reset email had been sent. The route now checks SMTP availability and validates the reset-page URL before looking up an account; a service/configuration failure returns the same HTTP 503 for every address. If a send fails after those checks, the route removes the failed token or restores the previous valid challenge and keeps the account response generic to prevent email enumeration.');
+card('What must be configured for delivery', 'This checkout has no `backend/.env` and no SMTP credentials. The deployed API must have valid SMTP_HOST, SMTP_PORT, SMTP_SECURE, SMTP_USER, SMTP_PASS, SMTP_FROM_EMAIL, and FRONTEND_URL values in its protected runtime environment. FRONTEND_URL must be the public website origin so the emailed link returns to the correct reset page. Code changes alone cannot deliver email without a working provider account.');
+card('How to interpret the status', 'The same successful API response covers an unknown address and a request where no error was returned; this avoids exposing registered emails. It does not guarantee that a message reached the inbox. A 503 means the SMTP transport failed its availability check before any account lookup. Check backend logs for later send errors and verify provider credentials, sender authorization, TLS/port settings, DNS, and outbound network access. Never put SMTP credentials in GitHub or screenshots.');
+card('Reset token controls', 'Tokens are random, hashed before storage, single use, and expire after 30 minutes. Resends are limited to one request every 30 seconds. Reset requests continue to return the same response for unknown email addresses.');
+
+section('Page directory', '06  /  Interface');
 table(['Route', 'Page', 'Purpose'], [
   ['/', 'Home', 'Project overview, Palawan scope, and account entry.'],
   ['/login', 'Sign in', 'Authenticate an existing account.'],
@@ -230,7 +266,7 @@ table(['Route', 'Page', 'Purpose'], [
 ], [118, 118, 288], { size: 7.6 });
 para('Legacy map, calendar, and climate URLs redirect into the current prediction flow; they are not separate pages in the active React router.', { size: 8.8, color: colors.gray });
 
-section('API reference: Express', '06  /  Application programming interface');
+section('API reference: Express', '07  /  Application programming interface');
 para('The Express service is mounted at `/api`. Authentication is cookie-based for the browser; route middleware applies account and role checks. Public health is available at `/api/health`. Express does not currently publish its own Swagger UI.', { size: 9.6 });
 table(['Route group', 'Key operations', 'Access purpose'], [
   ['/auth', 'Signup, verify, login/logout, current account, password reset.', 'Public auth actions; current-account route requires login.'],
@@ -248,7 +284,7 @@ table(['Route group', 'Key operations', 'Access purpose'], [
   ['/system', 'Overview, accounts/roles, schema, config, health, traffic; DA forecast summary.', 'Admin, except DA/admin forecast summary.'],
 ], [103, 238, 183], { size: 7.2 });
 
-section('API reference: climate and LASSO', '07  /  Python service');
+section('API reference: climate and LASSO', '08  /  Python service');
 table(['Method + path', 'Purpose'], [
   ['GET /health', 'Service/model and CMIP6-file health summary.'],
   ['GET /model/info', 'Active model metadata/configuration.'],
@@ -268,7 +304,7 @@ table(['Method + path', 'Purpose'], [
 ], [238, 286], { size: 7.8 });
 para('The ML service should normally be reached through the Express API. Training/activation routes change model state and must stay behind researcher/admin authorization; do not publish the ML port to untrusted networks.', { size: 9, color: colors.orange });
 
-section('Services, storage, and events', '08  /  Runtime');
+section('Services, storage, and events', '09  /  Runtime');
 table(['Component', 'Responsibility', 'Stored state / notes'], [
   ['React + Vite', 'Pages, form state, maps, charts, API calls.', 'Client assets; Vite proxies API/uploads/Socket.IO in development.'],
   ['Express + Socket.IO', 'JWT auth, role controls, validation, record operations, PDFs, real-time messages/events.', 'Serves built frontend in production when `frontend/dist` is present.'],
@@ -281,7 +317,7 @@ table(['Component', 'Responsibility', 'Stored state / notes'], [
 card('Realtime path', 'Socket.IO authenticates a socket from the signed cookie/token and joins account/admin rooms. The API emits events for notifications, forum and messaging updates so connected pages can refresh without polling every interaction.');
 card('Persistence map', 'MongoDB stores application records. The active climate reader loads source NetCDF and training CSV from the repository data tree; scikit-learn/joblib loads the active estimator from `ml-service/models/`. Uploaded files use local configured directories, so backups must cover both database and file storage.');
 
-section('Controls, roles, and validation', '09  /  Access and safety');
+section('Controls, roles, and validation', '10  /  Access and safety');
 table(['Control', 'What it enforces'], [
   ['Signed-in cookie', 'HTTP-only JWT cookie is checked by `requireAuth`; a bearer token is also recognized by the middleware.'],
   ['Roles', 'Farmer/member pages; researcher/admin model workspace; DA/admin forecast dashboard; admin-only system and moderation controls.'],
@@ -295,7 +331,7 @@ card('Admin control center', 'The admin dashboard includes overview, users/roles
 card('Researcher controls', 'The researcher dashboard can preview a dataset, start a retraining job, use the prepared Palawan set, inspect experiments, download datasets, and activate an experiment. Training routes are protected for researcher/admin.');
 card('Privacy and deployment', 'Keep JWT/SMTP/provider credentials in `.env` or the deployment secret store. Do not commit environment files. Health and service endpoints are intended for the application/operations layer, not public exposure of training controls.');
 
-section('Operating notes and limits', '10  /  Practical guide');
+section('Operating notes and limits', '11  /  Practical guide');
 subhead('Start locally');
 [
   'Install Node.js 20+, Python 3.10+, and MongoDB 7+.',
@@ -314,7 +350,24 @@ subhead('If a page or forecast fails');
 subhead('Interpret with care');
 para('The new Palawan model has a 15.00 percentage-point leave-one-year-out MAE and a 17.76-point leave-one-location-out MAE. The simple yearly mean baseline is 17.73 points. The scores are exploratory because the annual dataset is limited, some labels repeat, and weather values are estimated at municipality centers. They are not a guarantee for any farm or future season.', { size: 9.4 });
 
-section('Mobile screenshot gallery', '11  /  Captured screens');
+section('Accuracy limits and 3D analysis', '12  /  Model evidence');
+card('Training facts', 'The new Palawan model uses 100 annual location rows, 23 labeled locations, and years 2014–2025. It fits a StandardScaler + fixed-alpha LASSO (alpha 0.05) on five annual weather features. The weather values are NASA POWER estimates for municipality centers and the infestation targets come from the supplied records.');
+card('Training data versus prediction data', 'CMIP6 was not used to fit the new LASSO model. Annual NASA POWER municipality-center weather values were paired with the supplied infestation records for training. The live prediction service separately uses available CMIP6 monthly values and labeled fallbacks when its future/coordinate coverage is incomplete.');
+card('Main causes of unreliable forecasts', 'The strongest documented limitations are: few independent observations (100 rows across 23 places and 12 years); repeated infestation labels (65 rows reuse a location label across years); mixed target definitions and aggregation methods (12 earlier annual rows, 36 damage/harvest rows, 52 unweighted sampled-month means); and municipality-center or coarse-grid weather that cannot represent farm conditions. The five weather-only inputs also omit pest monitoring, orchard management, crop stage, and other local factors.');
+card('What validation says', 'When years are held out together, MAE is 15.00 and RMSE is 17.11 percentage points; the training-mean baseline is 17.73 / 18.56. When locations are held out, LASSO MAE/RMSE is 17.76 / 20.41 versus baseline 18.59 / 19.46, so the model has not shown lower large-error risk for unseen locations. This supports limited spatial generalization; it does not identify one single cause.');
+card('A note about 30 years', 'Thirty years is a common climatological-normal period, but it is not a hard requirement in this LASSO training code. More years of independently observed infestation paired with weather would strengthen evaluation; repeating old labels across years does not create the same evidence as new observations.');
+card('How to read these 3D figures', 'The response surface varies rainfall and temperature while holding humidity, solar radiation, and wind at training medians; it is an illustration of the fitted model, not a causal relationship. The validation figures display held-out predictions, not training fit alone. Three dimensions help inspect patterns but do not increase the underlying evidence or make a prediction more accurate.');
+
+const visualDir = path.join(ROOT, 'visualizations');
+const trainingImage = path.resolve(ROOT, '../palawan_lasso_retraining/images/02_during_palawan_training_3d.png');
+figurePage('Training view: site-year records and held-out estimates', 'The existing 3D training visualization shows recorded infestation values and estimates made while each year was held out. Each point is a location/year row; 100 rows do not mean 100 independent sites.', trainingImage);
+figurePage('Data view: weather inputs and infestation labels', 'Each point is one annual location row. Color marks year. Repeated horizontal target bands are consistent with labels reused across years, which reduces independent information for evaluating time trends.', path.join(visualDir, '3d_training_data.png'));
+figurePage('Data provenance: the infestation target is mixed', 'The 100 training rows combine three documented target constructions. These counts show why comparable future collection should use one defined measurement and aggregation method.', path.join(visualDir, '3d_infestation_label_sources.png'));
+figurePage('Model view: active LASSO response surface', 'The surface is conditional on the other three weather variables being fixed at their training-set medians. It visualizes model behavior inside the observed weather range; it is not a map of Palawan or causal evidence.', path.join(visualDir, '3d_lasso_response_surface.png'));
+figurePage('Validation view: estimates for years left out of training', 'Points near the equal-value line have smaller errors. Color shows absolute error in percentage points. RMSE summarizes the full held-out set and is not the error for every individual forecast.', path.join(visualDir, '3d_held_out_predictions.png'));
+figurePage('Validation comparison: held-out years and locations', 'Lower is better. Year-held-out LASSO RMSE is 17.11 points. For location-held-out rows, LASSO RMSE is 20.41 versus 19.46 for the simple mean baseline, highlighting the main concern for predictions at places not represented in training.', path.join(visualDir, '3d_validation_scores.png'));
+
+section('Mobile screenshot gallery', '13  /  Captured screens');
 para('The following direct captures are from the local Android virtual device at 1080 x 1920. The page captions identify the main purpose of each screen. Examples in account settings, history, forum, chat, and dashboards are synthetic demonstration data in the isolated documentation database.', { size: 9.3 });
 
 for (const [filename, title, caption] of screenshots) {
@@ -334,6 +387,25 @@ for (const [filename, title, caption] of screenshots) {
   doc.image(imagePath, imageX, imageTop, { width: imageWidth, height: imageHeight });
   setFont(false, 8.8, colors.gray);
   doc.text(`${caption}\nFile: screenshots/${filename}`, 54, 705, { width: 504, align: 'center', lineGap: 2 });
+}
+
+section('Client-provided system screenshots', '14  /  Supplied images');
+para('These screenshots were supplied in the sibling `reports/system images` folder and are included here as redacted copies. Personal name, email, phone, and address fields are masked in two images before they enter the repository.', { size: 9.2 });
+for (const [filename, title, caption] of clientScreens) {
+  const imagePath = path.join(SHOTS, 'client-supplied', filename);
+  if (!fs.existsSync(imagePath)) throw new Error(`Client screenshot is missing: ${imagePath}`);
+  doc.addPage();
+  setFont(true, 8, colors.green);
+  doc.text('CLIENT-PROVIDED SCREENSHOT', 44, 35, { characterSpacing: 1.1 });
+  setFont(true, 14, colors.deep);
+  doc.text(title, 44, 50, { width: 524 });
+  const imageMeta = doc.openImage(imagePath);
+  const scale = Math.min(524 / imageMeta.width, 570 / imageMeta.height);
+  const imageWidth = imageMeta.width * scale;
+  const imageHeight = imageMeta.height * scale;
+  doc.image(imagePath, (doc.page.width - imageWidth) / 2, 86, { width: imageWidth, height: imageHeight });
+  setFont(false, 8.5, colors.gray);
+  doc.text(`${caption}\nFile: screenshots/client-supplied/${filename}`, 54, 690, { width: 504, align: 'center', lineGap: 2 });
 }
 
 const pages = doc.bufferedPageRange();
