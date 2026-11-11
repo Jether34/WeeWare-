@@ -41,8 +41,8 @@ router.post('/:id/messages', async (req, res, next) => {
     if (conversation.messages.length === 1) {
       conversation.title = text.slice(0, 48);
     }
-    const { context, directAnswer } = await buildAssistantContext({ userId: req.user.sub, role: req.user.role, message: text, history });
-    const reply = directAnswer || await generateAssistantReply(text, history, context);
+    const { context, language } = await buildAssistantContext({ userId: req.user.sub, role: req.user.role, message: text, history, conversationId: conversation._id });
+    const reply = await generateAssistantReply(text, history, context, language);
     conversation.messages.push({ role: 'assistant', text: reply });
     await conversation.save();
     const result = conversation.toObject();
