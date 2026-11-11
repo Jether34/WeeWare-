@@ -28,15 +28,23 @@ const ACCOUNT_FIELDS = 'fullName email gender birthday address phone language ro
 const predictionFields = 'title startDate endDate year location weather weatherSources infestationRate rawRate confidenceLevel riskCategory suggestedAction severityScore actionKey measurementKeys createdAt updatedAt isSaved modelInfo';
 
 function asksAboutOwnAccount(message) {
-  return /\b(my|mine|me|myself|my account|my profile|my records|my data|my information|my predictions|my reports|my posts|my activity|my messages|my notifications|my signup|my sign-up)\b|\bwhat (?:is|are) my\b|\bwhat data (?:do you|does weeware) have about me\b/i.test(message);
+  return /\b(my|mine|myself|my account|my profile|my records|my data|my information|my predictions|my reports|my posts|my activity|my messages|my notifications|my signup|my sign-up|ko|aking|akin|akong|nako|akon|akun)\b|\bwhat (?:is|are) my\b|\bwhat data (?:do you|does weeware) have about me\b/i.test(message);
 }
 
 function asksForAllOwnData(message) {
-  return /\b(?:all|everything|complete|full)\b.{0,28}\b(?:my|about me|account|profile|records|data|information|activity)\b|\b(?:my|about me)\b.{0,28}\b(?:all data|everything|complete records|full records|all records|all information)\b/i.test(message);
+  return /\b(?:everything|complete|full)\b.{0,24}\b(?:about me|my account|my profile|my data|my records|my information|my activity)\b|\b(?:all|everything|complete|full)\b.{0,24}\b(?:my|about me)\b.{0,24}\b(?:data|records|information|account|profile|activity)\b|\b(?:my|about me)\b.{0,24}\b(?:all data|everything|complete records|full records|all records|all information|entire account)\b/i.test(message);
 }
 
 function asksForPredictions(message) {
-  return /\b(prediction|predictions|forecast|forecasts|saved report|saved reports|infestation history)\b/i.test(message);
+  return /\b(prediction|predictions|prediksyon|forecast|forecasts|banabana|infestation|risk|saved report|saved reports|prediction history|infestation history)\b/i.test(message);
+}
+
+function isPredictionRecordFollowup(message, history = []) {
+  const text = String(message || '').trim();
+  const priorUsers = history.filter((item) => item.role === 'user').slice(-4).map((item) => String(item.text || ''));
+  const priorPredictionRequest = priorUsers.some((item) => asksAboutOwnAccount(item) && asksForPredictions(item));
+  const dateOrListRefinement = /\b(this year|this month|last year|last month|any year|any month|all of them|all results|all records|latest|most recent|results?|regardless|current year|current month|year|month)\b/i.test(text);
+  return priorPredictionRequest && text.length <= 120 && dateOrListRefinement;
 }
 
 function asksForForumRecords(message) {
@@ -103,11 +111,12 @@ async function readModelSummary() {
   }
 }
 
-async function readPersonalContext(userId, role, message, conversationId) {
+async function readPersonalContext(userId, role, message, conversationId, history = []) {
   const blocks = [];
   const allOwnData = asksForAllOwnData(message);
+  const predictionFollowup = isPredictionRecordFollowup(message, history);
   const requestsAccount = asksAboutOwnAccount(message);
-  const requestsPredictions = allOwnData || (asksAboutOwnAccount(message) && asksForPredictions(message));
+  const requestsPredictions = allOwnData || (asksAboutOwnAccount(message) && asksForPredictions(message)) || predictionFollowup;
   const requestsForum = allOwnData || (asksAboutOwnAccount(message) && asksForForumRecords(message));
   const requestsMessages = allOwnData || asksForMessages(message);
   const requestsNotifications = allOwnData || asksForNotifications(message);
@@ -134,12 +143,17 @@ async function readPersonalContext(userId, role, message, conversationId) {
     }
     blocks.push(jsonBlock("Signed-in user's account record", account));
   }
+  let personalPredictions = null;
+  let personalPredictionCount = null;
   if (requestsPredictions) {
-    const [predictions, saved] = await Promise.all([
-      Prediction.find({ user: userId }).select(predictionFields).sort({ createdAt: -1 }).limit(8).lean(),
+    const [predictions, saved, predictionCount] = await Promise.all([
+      Prediction.find({ user: userId }).select(predictionFields).sort({ createdAt: -1 }).limit(20).lean(),
       SavedPrediction.find({ user: userId }).select('title description createdAt prediction').sort({ createdAt: -1 }).limit(8).lean(),
+      Prediction.countDocuments({ user: userId }),
     ]);
-    blocks.push(jsonBlock("Signed-in user's recent prediction records (up to 8)", predictions));
+    personalPredictions = predictions;
+    personalPredictionCount = predictionCount;
+    blocks.push(jsonBlock("Signed-in user's recent prediction records (up to 20)", predictions));
     blocks.push(jsonBlock("Signed-in user's saved report records (up to 8)", saved));
   }
   if (requestsForum) {
@@ -176,7 +190,7 @@ async function readPersonalContext(userId, role, message, conversationId) {
     const files = await GroupFile.find({ owner: userId }).select('originalName mimeType size message createdAt updatedAt').sort({ createdAt: -1 }).limit(20).lean();
     blocks.push(jsonBlock("Signed-in user's uploaded group-file records (latest 20; storage paths excluded)", files));
   }
-  return { blocks, language: user.language || 'en' };
+  return { blocks, language: user.language || 'en', predictionRecords: personalPredictions, predictionCount: personalPredictionCount };
 }
 
 async function readAdminAccountLookup(message, history = [], actorId) {
@@ -309,7 +323,7 @@ async function readStaffSystemContext(role, message) {
 async function buildAssistantContext({ userId, role, message, history, conversationId }) {
   const blocks = [`System knowledge:\n${SYSTEM_KNOWLEDGE}`];
   const [personal, account] = await Promise.all([
-    readPersonalContext(userId, role, message, conversationId),
+    readPersonalContext(userId, role, message, conversationId, history),
     User.findById(userId).select('language').lean(),
   ]);
   blocks.push(...personal.blocks);
@@ -328,7 +342,7 @@ async function buildAssistantContext({ userId, role, message, history, conversat
     else omitted = true;
   }
   if (omitted) included.push('Some database context was omitted to fit the model context window. State that the shown records are incomplete and ask for a narrower account, collection, or date range.');
-  return { context: `${header}\n\n${included.join('\n\n')}`, language };
+  return { context: `${header}\n\n${included.join('\n\n')}`, language, predictionRecords: personal.predictionRecords, predictionCount: personal.predictionCount };
 }
 
 module.exports = { buildAssistantContext };
