@@ -101,3 +101,16 @@
   .prediction-page .prediction-result .row{min-width:0;max-width:100%;gap:7px}
   .prediction-page .prediction-result .row .button{min-width:0;padding:9px 10px;font-size:11px}
 }
+@media(min-width:901px){
+  .prediction-page .recommendation-panel{margin:12px 0;padding:16px 18px;border:1px solid #dce8de;border-radius:15px;background:linear-gradient(145deg,#f6faf6,#eef6f0)}
+  .prediction-page .recommendation-panel .section-head{align-items:center;margin:0 0 12px}
+  .prediction-page .recommendation-panel .section-head h3{margin:0;font:750 17px Manrope,sans-serif;color:#234b35}
+  .prediction-page .recommendation-panel ul{grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:0;padding:0;list-style:none}
+  .prediction-page .recommendation-panel li{display:flex;align-items:flex-start;gap:9px;min-width:0;margin:0;padding:12px;border:1px solid #e2ebe3;border-radius:11px;background:#fff;color:#344f3e;font-size:13px;line-height:1.5;overflow-wrap:anywhere}
+  .prediction-page .recommendation-panel li::before{content:"";flex:none;width:8px;height:8px;margin-top:6px;border-radius:50%;background:#278354;box-shadow:0 0 0 3px #e7f3ea}
+  .prediction-page .recommendation-panel .recommendation-caveat{margin:12px 0 0;padding:10px 12px;border-left:3px solid #7eaa88;border-radius:0 8px 8px 0;background:#edf4ee;color:#5d7062;font-size:11px;line-height:1.5;overflow-wrap:anywhere}
+  .prediction-page .recommendation-panel .recommendation-sources{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:center;gap:8px 14px;margin-top:13px;padding-top:12px;font-size:11px}
+  .prediction-page .recommendation-panel .recommendation-sources strong{grid-column:1/-1;flex-basis:auto;color:#3c5c47;font-size:12px}
+  .prediction-page .recommendation-panel .recommendation-sources>a:not(.button){display:flex;align-items:center;min-width:0;min-height:38px;padding:8px 10px;border:1px solid #e1ebe3;border-radius:9px;background:#fff;line-height:1.4;overflow-wrap:anywhere}
+  .prediction-page .recommendation-panel .recommendation-contact{grid-column:1/-1;justify-self:end;margin:2px 0 0;padding:9px 13px;font-size:12px}
+}
