@@ -78,3 +78,26 @@
 .calculation-progress span{width:68%;transform:none;animation:none}
 @media(max-width:700px){.calculation-backdrop{inset:62px 0 0;padding:16px}.calculation-overlay{padding:23px 18px}}
 @media(min-width:901px){.prediction-page .calculation-backdrop{position:fixed;inset:70px 0 0 232px;overflow:hidden}.prediction-page .calculation-backdrop .calculation-overlay{position:relative;inset:auto}}
+@media(max-width:700px){
+  .prediction-page,.prediction-page>.prediction-result,.prediction-page>.prediction-result>*{min-width:0;max-width:100%}
+  .prediction-page>.prediction-result{width:100%;overflow-x:hidden;padding:12px}
+  .prediction-page .prediction-step-title>div{min-width:0;overflow-wrap:anywhere}
+  .prediction-page .prediction-visual-summary{display:grid;grid-template-columns:minmax(0,1fr);gap:10px;width:100%;min-width:0;max-width:100%}
+  .prediction-page .prediction-scale,.prediction-page .prediction-weather-graph{width:100%;min-width:0;max-width:100%;margin:0;padding:15px 13px}
+  .prediction-page .prediction-scale-heading{align-items:flex-start;flex-direction:column;gap:8px;min-width:0}
+  .prediction-page .prediction-scale-heading>div{min-width:0;max-width:100%}
+  .prediction-page .prediction-scale-heading>div>span{white-space:normal;overflow-wrap:anywhere}
+  .prediction-page .prediction-scale-heading>div>strong{font-size:29px}
+  .prediction-page .prediction-scale h3,.prediction-page .prediction-weather-graph h3{font-size:15px;line-height:1.35;overflow-wrap:anywhere}
+  .prediction-page .prediction-scale-chart{width:auto;min-width:0;margin:30px 8px 0}
+  .prediction-page .prediction-scale-explainer,.prediction-page .prediction-weather-graph p{overflow-wrap:anywhere}
+  .prediction-page .prediction-weather-tabs{min-width:0;gap:6px;margin:9px 0 12px}
+  .prediction-page .prediction-weather-tabs button{flex:1 1 auto;min-width:0;max-width:100%;padding:7px 8px;white-space:normal;overflow-wrap:anywhere;font-size:10px;line-height:1.25}
+  .prediction-page .prediction-weather-plot{width:100%;min-width:0;max-width:100%;min-height:0;padding:10px 7px}
+  .prediction-page .prediction-weather-plot .monthly-chart{width:100%;min-width:0;height:122px;gap:1px;overflow:hidden}
+  .prediction-page .prediction-weather-plot .monthly-column{min-width:0;grid-template-rows:22px minmax(0,1fr) 16px;gap:2px}
+  .prediction-page .prediction-weather-plot .monthly-value{max-width:100%;font-size:8px;line-height:1;white-space:normal;overflow-wrap:anywhere;text-align:center}
+  .prediction-page .prediction-weather-plot .monthly-label{font-size:8px}
+  .prediction-page .prediction-result .row{min-width:0;max-width:100%;gap:7px}
+  .prediction-page .prediction-result .row .button{min-width:0;padding:9px 10px;font-size:11px}
+}
