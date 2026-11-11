@@ -33,21 +33,23 @@ function MonthlyChart({ climate, feature, featureNames, locale }) {
 function WeatherChart({ climate, labels, locale }) {
   return <div className="weather-chart-grid">{Object.keys(labels).map((feature) => <article className="weather-chart-card" key={feature}><div className="section-head"><strong>{labels[feature]}</strong><small>{units[feature]}</small></div><MonthlyChart climate={climate} feature={feature} featureNames={labels} locale={locale} /></article>)}</div>;
 }
-function PredictionScale({ prediction, t, locale }) {
+function PredictionScale({ prediction, climate, t, locale, feature, onFeatureChange, featureLabels }) {
   const minimum = Number.isFinite(Number(prediction.modelInfo?.outputMin)) ? Number(prediction.modelInfo.outputMin) : 0;
   const maximum = Number.isFinite(Number(prediction.modelInfo?.outputMax)) && Number(prediction.modelInfo.outputMax) > minimum ? Number(prediction.modelInfo.outputMax) : 100;
-  const severity = Number.isFinite(Number(prediction.severityScore))
-    ? Math.max(0, Math.min(100, Number(prediction.severityScore)))
-    : Math.max(0, Math.min(100, ((Number(prediction.infestationRate) - minimum) / (maximum - minimum)) * 100));
   const rate = Number(prediction.infestationRate);
+  const position = Number.isFinite(rate) ? Math.max(0, Math.min(100, ((rate - minimum) / (maximum - minimum)) * 100)) : 0;
   const formattedRate = Number.isFinite(rate) ? rate.toLocaleString(locale, { maximumFractionDigits: 2 }) : '—';
-  return <section className="prediction-scale" aria-label={t('Visual prediction summary')}>
-    <div className="prediction-scale-heading"><div><span>{t('Estimated infestation level')}</span><strong>{formattedRate}%</strong></div><span className={`pill risk-${String(prediction.riskCategory || 'low').toLowerCase()}`}>{t(prediction.riskCategory)} {t('risk')}</span></div>
-    <div className="prediction-scale-chart" role="img" aria-label={t('Model scale position: {{value}} out of 100', { value: Math.round(severity) })}>
-      <div className="prediction-scale-track"><span className="prediction-scale-fill" style={{ width: `${severity}%` }} /><span className="prediction-scale-marker" style={{ left: `${severity}%` }}><span>{Math.round(severity)}</span></span></div>
-      <div className="prediction-scale-labels"><span>{t('Lower model estimate')}</span><span>{t('Higher model estimate')}</span></div>
+  return <section className="prediction-visual-summary" aria-label={t('Visual prediction summary')}>
+    <div className="prediction-scale">
+      <div className="prediction-scale-heading"><div><span>{t('Estimated infestation level')}</span><strong>{formattedRate}%</strong></div><span className={`pill risk-${String(prediction.riskCategory || 'low').toLowerCase()}`}>{t(prediction.riskCategory)} {t('risk')}</span></div>
+      <h3>{t('Where the estimate sits on the model scale')}</h3>
+      <div className="prediction-scale-chart" role="img" aria-label={t('Model scale position: {{value}}', { value: `${formattedRate}%` })}>
+        <div className="prediction-scale-track"><span className="prediction-scale-fill" style={{ width: `${position}%` }} /><span className="prediction-scale-marker" style={{ left: `${position}%` }}><span>{formattedRate}%</span></span></div>
+        <div className="prediction-scale-labels"><span>{minimum.toLocaleString(locale, { maximumFractionDigits: 2 })}%</span><span>{maximum.toLocaleString(locale, { maximumFractionDigits: 2 })}%</span></div>
+      </div>
+      <p className="prediction-scale-explainer">{t('This is a model estimate based on weather and training records, not a count of infested trees on your farm.')}</p>
     </div>
-    <p className="prediction-scale-explainer">{t('This is an estimate from weather data and the model’s training records. It is not a count of infested trees on your farm.')}</p>
+    {climate?.monthly?.length > 0 && <section className="prediction-weather-graph"><div><h3>{t('Weather patterns used in this prediction')}</h3><p>{t('These monthly weather readings are model inputs, not monthly infestation forecasts.')}</p></div><div className="prediction-weather-tabs" role="group" aria-label={t('Choose a weather variable to graph')}>{Object.entries(featureLabels).map(([key, label]) => <button type="button" key={key} className={feature === key ? 'active' : ''} aria-pressed={feature === key} onClick={() => onFeatureChange(key)}>{label}</button>)}</div><div className="prediction-weather-plot"><div className="section-head"><strong>{featureLabels[feature]}</strong><small>{units[feature]}</small></div><MonthlyChart climate={climate} feature={feature} featureNames={featureLabels} locale={locale} /></div></section>}
   </section>;
 }
 export default function PredictionPage() {
@@ -61,6 +63,7 @@ export default function PredictionPage() {
   const [loadingClimate, setLoadingClimate] = useState(false);
   const [busy, setBusy] = useState(false);
   const [prediction, setPrediction] = useState(null);
+  const [resultFeature, setResultFeature] = useState('rainfall');
   const [error, setError] = useState('');
   const [saved, setSaved] = useState(false);
   const location = useMemo(() => ({ lat: Number(pin[0].toFixed(5)), lng: Number(pin[1].toFixed(5)), name: 'Palawan, Philippines' }), [pin]);
@@ -115,7 +118,7 @@ export default function PredictionPage() {
     </section>}
 
     {step === 4 && prediction && <section className="card prediction-result"><div className="prediction-step-title"><span>4</span><div><h2>{t('Prediction result and suggested action')}</h2><p className="muted">{dates.startDate} {t('through')} {dates.endDate} · {location.lat.toFixed(4)}, {location.lng.toFixed(4)}</p></div></div>
-      <PredictionScale prediction={prediction} t={t} locale={locale} />
+      <PredictionScale prediction={prediction} climate={climate} t={t} locale={locale} feature={resultFeature} onFeatureChange={setResultFeature} featureLabels={featureLabels} />
       <div className="result-overview"><div><strong>{t('What this means')}</strong><p>{t(prediction.actionKey || actionByRisk[prediction.riskCategory] || prediction.suggestedAction)}</p></div></div>
       <section className="prediction-findings recommendation-panel"><div className="section-head"><h3>{t('Suggested measurements')}</h3><span className="pill">{t('Based on the forecast risk')}</span></div><ul>{(prediction.measurementKeys || []).map((key) => <li key={key}>{t(key)}</li>)}</ul><p className="recommendation-caveat">{t('This forecast is a screening estimate. Inspect suspect fruit in the field and message the WeeWare DA account for local guidance.')}</p><div className="recommendation-sources"><strong>{t('Guidance sources')}</strong><a href="https://www.da.gov.ph/wp-content/uploads/2023/05/Philippine-Mango-Industry-Roadmap.pdf" target="_blank" rel="noreferrer">{t('Philippine Department of Agriculture mango industry roadmap')}</a><a href="https://www.business.qld.gov.au/industries/farms-fishing-forestry/agriculture/biosecurity/plants/priority-pest-disease/mango-pulp-weevil" target="_blank" rel="noreferrer">{t('Mango pulp weevil monitoring guidance')}</a><a className="button secondary recommendation-contact" href="/app/messages">{t('Message the DA account')}</a></div></section>
       {error && <p className="error">{error}</p>}<div className="row"><button className="button secondary" onClick={save} disabled={saved}>{saved ? t('Saved to reports') : t('Save report')}</button><a className="button secondary" href={`/api/predictions/${prediction._id}/report`}>{t('Download PDF')}</a><a className="button secondary" href="/app/history">{t('Prediction history')}</a></div>
