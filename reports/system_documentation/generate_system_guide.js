@@ -67,7 +67,8 @@ function setFont(bold = false, size = 10, color = colors.ink) {
 }
 function para(text, options = {}) {
   setFont(options.bold, options.size || 10, options.color || colors.ink);
-  doc.text(text, { width: options.width || 520, lineGap: options.lineGap ?? 3, paragraphGap: options.paragraphGap ?? 7, ...options });
+  const { x = 44, y = doc.y, ...textOptions } = options;
+  doc.text(text, x, y, { width: textOptions.width || 520, lineGap: textOptions.lineGap ?? 3, paragraphGap: textOptions.paragraphGap ?? 7, ...textOptions });
 }
 function bullet(text, x = 54, width = 500) {
   setFont(false, 9.6, colors.ink);
