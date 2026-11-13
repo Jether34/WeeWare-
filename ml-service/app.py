@@ -174,9 +174,9 @@ async def analyze_prepared_palawan_with_weka(request: Request):
 
 @app.post("/weka/analyze/final-dataset")
 async def analyze_weeware_final_dataset_with_weka(request: Request):
-    dataset_path = ROOT.parent / "datasets" / "training" / "WEEWARE FINAL DATASET 2014-2025.csv"
+    dataset_path = ROOT.parent / "datasets" / "training" / "WEEWARE PAYNAL DEYTA SITS.xlsx"
     if not dataset_path.is_file():
-        raise HTTPException(status_code=404, detail="WEEWARE FINAL DATASET 2014-2025.csv is not installed.")
+        raise HTTPException(status_code=404, detail="WEEWARE PAYNAL DEYTA SITS.xlsx is not installed.")
     algorithm = request.headers.get("x-weka-algorithm", "random_forest")
     folds = request.headers.get("x-weka-folds", "5")
     low_threshold = request.headers.get("x-weka-low-threshold", "33")

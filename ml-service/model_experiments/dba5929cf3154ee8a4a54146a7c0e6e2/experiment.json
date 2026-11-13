@@ -1,0 +1,86 @@
+{
+  "id": "dba5929cf3154ee8a4a54146a7c0e6e2",
+  "state": "completed",
+  "filename": "WEEWARE PAYNAL DEYTA SITS.xlsx",
+  "rows": 12,
+  "year_start": 2014,
+  "year_end": 2025,
+  "uploaded_by": "6af6c0aad18912569aab9a6f",
+  "created_at": "2026-11-13T12:15:46.915215+00:00",
+  "config": {
+    "alpha_mode": "fixed",
+    "alpha": 0.05,
+    "cv_folds": 5,
+    "max_iter": 100000,
+    "fit_intercept": true,
+    "features": [
+      "rainfall",
+      "temperature",
+      "humidity",
+      "solar",
+      "wind"
+    ],
+    "prediction": {
+      "min": 0.0,
+      "max": 5.0,
+      "low_threshold": 1.5,
+      "high_threshold": 3.0
+    }
+  },
+  "alpha": 0.05,
+  "training_mae": 0.6382519211885608,
+  "training_rmse": 0.7769552594159882,
+  "validation": {
+    "method": "leave-one-year-out",
+    "mae": 0.918780815158572,
+    "rmse": 1.10834427727654,
+    "baseline_mae": 0.6910869277947169,
+    "baseline_rmse": 0.8782467109237562,
+    "predictions": [
+      2.076761,
+      1.447304,
+      1.242989,
+      1.892847,
+      1.866298,
+      1.799147,
+      1.598844,
+      1.630906,
+      2.785085,
+      1.913497,
+      2.135307,
+      1.527192
+    ],
+    "observed": [
+      0.8277094253029289,
+      1.9215018245999915,
+      2.3483082857831716,
+      1.8412560674675271,
+      1.6789800103778014,
+      2.0541301834898955,
+      2.5047401271086445,
+      3.4006376195536663,
+      0.9629775204462652,
+      1.5653027699628028,
+      0.4270361320016133,
+      2.6759000907654555
+    ],
+    "years": [
+      2014,
+      2015,
+      2016,
+      2017,
+      2018,
+      2019,
+      2020,
+      2021,
+      2022,
+      2023,
+      2024,
+      2025
+    ],
+    "note": "All locations for each year are held out together; validation rows are compared with a training-mean baseline."
+  },
+  "spatial_validation": null,
+  "selection_note": "Cross-validation selected a model with non-zero climate coefficients.",
+  "active": false
+}

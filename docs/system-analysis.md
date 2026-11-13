@@ -36,10 +36,10 @@ Direct-message conversations can be archived per user or deleted for both partic
 ## LASSO model
 
 - Model: scikit-learn StandardScaler + LASSO regression pipeline.
-- Current active training set: 12 Palawan-wide annual rows from 2014-2025, with five weather features and infestation rate as the target. This has no location-level observations; the active model leave-one-year-out MAE (0.883 pp) and RMSE (1.063 pp) are both worse than the mean baseline (0.666 and 0.847 pp).
+- Current active training set: 12 Palawan-wide annual rows from 2014-2025, with five weather features and infestation rate as the target. This has no location-level observations; the active model leave-one-year-out MAE (0.919 pp) and RMSE (1.108 pp) are both worse than the mean baseline (0.691 and 0.878 pp).
 - Historical comparison set: 100 location-year rows from 23 municipality/city locations and 12 years (2014-2025), documented in [model validation](model-validation.md).
 - Features: rainfall (mm/year), temperature (degrees Celsius), relative humidity (percent), solar radiation (MJ/m2/day), and wind speed (m/s).
-- Active model experiment: fixed alpha 0.05, recorded under `ml-service/model_experiments/264192d1bf394c0eb85644180c250bdd/`.
+- Active model experiment: fixed alpha 0.05, recorded under `ml-service/model_experiments/dba5929cf3154ee8a4a54146a7c0e6e2/`.
 - Output range: 0-5 percent, with Low below 1.5%, Medium from 1.5% to below 3%, and High at 3% or above.
 - Validation: leave-one-year-out and held-out-location comparisons are in [model validation](model-validation.md). The scores are exploratory due to repeated infestation labels, mixed target definitions, limited records, and spatially estimated weather. The result is not a calibrated probability.
 

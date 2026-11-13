@@ -6,7 +6,6 @@ import re
 import shutil
 import subprocess
 import tempfile
-from io import BytesIO
 from pathlib import Path
 
 import pandas as pd
@@ -118,10 +117,9 @@ def analyze_dataset(dataset_bytes: bytes, filename: str, algorithm: str, folds: 
     except (TypeError, ValueError) as exc:
         raise ValueError("Cross-validation folds must be a whole number from 2 to 10.") from exc
     try:
-        frame = pd.read_csv(BytesIO(dataset_bytes)) if Path(filename).suffix.lower() == ".csv" else pd.read_excel(BytesIO(dataset_bytes), sheet_name=0, engine="openpyxl")
-    except Exception as exc:
-        raise ValueError("Upload a valid WeeWare .xlsx workbook or .csv file.") from exc
-    values = model._prepare_training_frame(frame)
+        values = model._read_training_values(dataset_bytes, filename)
+    except ValueError as exc:
+        raise ValueError("Upload a valid WeeWare .xlsx workbook or .csv file. " + str(exc)) from exc
     if not 2 <= folds <= min(10, len(values)):
         raise ValueError(f"Choose between 2 and {min(10, len(values))} cross-validation folds.")
     try:

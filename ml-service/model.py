@@ -121,14 +121,33 @@ def _prepare_training_frame(frame: pd.DataFrame) -> pd.DataFrame:
     return selected.sort_values(["year", "location"] if "location" in selected else ["year"]).reset_index(drop=True)
 
 
+def _read_training_values(dataset_bytes: bytes, filename: str) -> pd.DataFrame:
+    if Path(filename).suffix.lower() == ".csv":
+        try:
+            return _prepare_training_frame(pd.read_csv(BytesIO(dataset_bytes)))
+        except ValueError:
+            raise
+        except Exception as exc:
+            raise ValueError("The dataset could not be opened. Upload a valid .xlsx workbook or .csv file using the WeeWare template columns.") from exc
+    try:
+        workbook = pd.ExcelFile(BytesIO(dataset_bytes), engine="openpyxl")
+    except Exception as exc:
+        raise ValueError("The dataset could not be opened. Upload a valid .xlsx workbook or .csv file using the WeeWare template columns.") from exc
+    sheet_errors = []
+    for sheet_name in workbook.sheet_names:
+        try:
+            values = _prepare_training_frame(pd.read_excel(workbook, sheet_name=sheet_name))
+            return values
+        except Exception as exc:
+            sheet_errors.append(f"{sheet_name}: {exc}")
+    detail = sheet_errors[-1] if sheet_errors else "The workbook has no worksheets."
+    raise ValueError(f"No worksheet contains valid WeeWare training data. {detail}")
+
+
 def preview_dataset(dataset_bytes: bytes, filename: str = "training.xlsx") -> dict[str, Any]:
     if not dataset_bytes:
         raise ValueError("Choose an Excel workbook or CSV file to preview.")
-    try:
-        frame = pd.read_csv(BytesIO(dataset_bytes)) if Path(filename).suffix.lower() == ".csv" else pd.read_excel(BytesIO(dataset_bytes), sheet_name=0, engine="openpyxl")
-    except Exception as exc:
-        raise ValueError("The dataset could not be opened. Upload a valid .xlsx workbook or .csv file using the WeeWare template columns.") from exc
-    values = _prepare_training_frame(frame)
+    values = _read_training_values(dataset_bytes, filename)
     summary = {column: {"min": round(float(values[column].min()), 4), "max": round(float(values[column].max()), 4), "mean": round(float(values[column].mean()), 4)} for column in [*FEATURE_COLUMNS, TARGET_COLUMN]}
     columns = (["location"] if "location" in values else []) + ["year", *FEATURE_COLUMNS, TARGET_COLUMN]
     return {"filename": Path(filename).name[:160], "rows": len(values), "locations": int(values.location.nunique()) if "location" in values else None, "years": int(values.year.nunique()), "year_start": int(values.year.min()), "year_end": int(values.year.max()), "columns": columns, "summary": summary, "preview": values.head(8).to_dict(orient="records")}
@@ -245,8 +264,7 @@ def train_dataset(dataset_bytes: bytes, filename: str, config: dict[str, Any] | 
     try:
         _set_training_status("running", "validating", 5, "Validating the uploaded training workbook.", run_id)
         parsed = preview_dataset(dataset_bytes, filename)
-        frame = pd.read_csv(BytesIO(dataset_bytes)) if Path(filename).suffix.lower() == ".csv" else pd.read_excel(BytesIO(dataset_bytes), sheet_name=0, engine="openpyxl")
-        values = _prepare_training_frame(frame)
+        values = _read_training_values(dataset_bytes, filename)
         settings = _validated_config(config)
         if float(values[TARGET_COLUMN].max()) > settings["prediction"]["max"]:
             settings["prediction"]["max"] = 100.0

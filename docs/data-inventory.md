@@ -4,8 +4,9 @@
 
 | Destination | Source | Use |
 |---|---|---|
-| `datasets/training/WEEWARE FINAL DATASET 2014-2025.csv` | Google Drive `LASSO Datasets` archive | Annual training rows and historical observed climate features |
-| `ml-service/models/lasso_weevil_model.joblib` | Final dataset retraining experiment 264192d1bf394c0eb85644180c250bdd | Active LASSO estimator; 12 Palawan-wide annual records, with LOYO error above the mean baseline |
+| `datasets/training/WEEWARE FINAL DATASET 2014-2025.csv` | Google Drive `LASSO Datasets` archive | Earlier annual training source |
+| `datasets/training/WEEWARE PAYNAL DEYTA SITS.xlsx` | User-supplied workbook | Current annual training source; the schema-valid worksheet is selected from the workbook |
+| `ml-service/models/lasso_weevil_model.joblib` | Workbook retraining experiment dba5929cf3154ee8a4a54146a7c0e6e2 | Active LASSO estimator; 12 Palawan-wide annual records, with LOYO error above the mean baseline |
 | `ml-service/models/lasso_weevil_model.pre-retrain.joblib` | Google Drive backend archive | Archived prior LASSO estimator for comparison |
 | `datasets/legacy/forum-media.bin` | Google Drive `LASSO Datasets` archive | Preserved legacy media binary; not interpreted by the new API |
 
@@ -28,8 +29,9 @@ The seven extracted NetCDF files are preserved in `datasets/climate/netcdf`; the
 | File | SHA-256 |
 |---|---|
 | `datasets/training/WEEWARE FINAL DATASET 2014-2025.csv` | `4899C1EDC250743A49E7E594B3CB214F5742CBFF627415CDF29061CEAE2FDD0A` |
+| `datasets/training/WEEWARE PAYNAL DEYTA SITS.xlsx` | `A1728A94355003503E8343F1E8A6049E4D30C632E1397612529760CE0A191333` |
 | `datasets/legacy/forum-media.bin` | `F9BDAECD3B635787E570B908AB7CA8EADF95E23700068A048A01A282D4D3717A` |
-| `ml-service/models/lasso_weevil_model.joblib` | `DA37DCB61D499B472C617AC16FE7166C77A5E500E94A03D4693A0AAADF96FDDE` |
+| `ml-service/models/lasso_weevil_model.joblib` | `9A998B8DC8053850FC2078FD9AA70D70641B758E468BB0D473435176212373C0` |
 | `hurs_Amon_CanESM5_dcppB-forecast_s2022-r19i1p2f1_gn_202301-203212.nc` | `ED679270CDCCBB208081BB1407560F082424A1B35D674729AA69950E10615440` |
 | `pr_Amon_CanESM5-1_ssp245_r1i1p1f1_gn_201501010130-202012312230.nc` | `E9FA7E279C5CDB40CAE4C49AC7BC1CE28CA846021473DF09AF2E78C6B97FFC2E` |
 | `pr_Amon_CanESM5-1_ssp245_r1i1p1f1_gn_202101010130-203012312230.nc` | `3ECFDCFC9BEB78B8B4BDA2FF25214EB7D9A01782EC5D8A58890624AF7620C9F6` |

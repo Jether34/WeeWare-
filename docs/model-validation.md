@@ -2,14 +2,14 @@
 
 ## Current active retrain (13 November 2026)
 
-The active artifact was retrained from `datasets/training/WEEWARE FINAL DATASET 2014-2025.csv` and is recorded as experiment `264192d1bf394c0eb85644180c250bdd`. The source has 12 annual Palawan-wide observations (one per year from 2014 to 2025), not location-level observations. It uses fixed alpha 0.05 and a 0-5 output range.
+The active artifact was retrained from `datasets/training/WEEWARE PAYNAL DEYTA SITS.xlsx` and is recorded as experiment `dba5929cf3154ee8a4a54146a7c0e6e2`. Its annual-data worksheet has 12 Palawan-wide observations (one per year from 2014 to 2025), not location-level observations. The workbook also has an initial log/correlation sheet; the reader selects the first worksheet that passes the WeeWare training schema. This model uses fixed alpha 0.05 and a 0-5 output range.
 
 | Validation | MAE (percentage points) | RMSE (percentage points) |
 |---|---:|---:|
-| Active LASSO, leave-one-year-out | 0.883 | 1.063 |
-| Training-mean baseline, leave-one-year-out | 0.666 | 0.847 |
+| Active LASSO, leave-one-year-out | 0.919 | 1.108 |
+| Training-mean baseline, leave-one-year-out | 0.691 | 0.878 |
 
-The active run scores worse than the mean baseline on both measures, and it has no held-out-location validation. The system activated it because the training route deploys completed runs automatically; these results do not support treating it as a reliable forecasting model. The earlier 100-row, location-year experiment and its validation evidence are documented below as historical results. Collect more independent location-year observations and compare against the baseline before relying on forecasts.
+This run scores worse than the mean baseline on both measures, and it has no held-out-location validation. The system activated it because the training route deploys completed runs automatically; these results do not support treating it as a reliable forecasting model. It replaced the prior 12-row CSV run `264192d1bf394c0eb85644180c250bdd` (LOYO MAE/RMSE 0.883/1.063 vs baseline 0.666/0.847). The earlier 100-row, location-year experiment and its validation evidence are documented below as historical results. Collect more independent location-year observations and compare against the baseline before relying on forecasts.
 
 ## Training data and model
 
