@@ -184,7 +184,7 @@ export default function AdminDashboardPage() {
   const performance = health?.performance;
 
   return <div className="page admin-page">
-    <header className="admin-page-heading"><div><span className="admin-eyebrow">{t('WEEWARE CONTROL CENTER')}</span><h1>{t('Admin dashboard')}</h1><p>{t('Manage accounts, monitor services, and inspect system data.')}</p></div><span className="admin-role-chip">{t('Administrator')}</span></header>
+    <header className="admin-page-heading"><div><span className="admin-eyebrow">{t('WEEWARE CONTROL CENTER')}</span><h1>{t('Admin dashboard')}</h1><p>{t('Accounts, services, and activity.')}</p></div><span className="admin-role-chip">{t('Administrator')}</span></header>
     <nav className="admin-tabs" aria-label={t('Admin dashboard sections')}>{tabs.map(([key, label]) => <button key={key} className={tab === key ? 'active' : ''} onClick={() => { setTab(key); if (key === 'traffic') loadTraffic(); if (key === 'conversations' || key === 'schema') loadAdminViews(); }}>{t(label)}</button>)}</nav>
     {error && <p className="error">{error}</p>}{message && <p className="success">{message}</p>}
     {tab === 'moderation' && <>

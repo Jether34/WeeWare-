@@ -18,8 +18,8 @@ The selected coordinates are for spatial lookup within the broad Palawan study a
 |---|---|---|
 | Home/About | Learn about the project and enter the application | `/` |
 | Login | Authenticate with email and password | `/login` |
-| Signup | Create an account, complete profile, accept terms, and enter email verification code | `/signup` |
-| Location map | Select a study coordinate within Palawan | `/app/map` |
+| Signup | Create an account with name, email, password, accept terms, and enter email verification code | `/signup` |
+| Location map | Search Palawan places, use browser-approved current location, or select a study coordinate | `/app/map` |
 | Climate calendar | Inspect monthly values by feature and source | `/app/calendar` |
 | Climate data | Compare monthly values, annual summaries, and source attribution | `/app/climate` |
 | Prediction | Choose a 365-day window, calculate risk, save a report, and download PDF | `/app/prediction` |
@@ -27,9 +27,11 @@ The selected coordinates are for spatial lookup within the broad Palawan study a
 | Saved reports | Reopen or delete saved reports | `/app/saved` |
 | Community forum | Create posts with media, search, like, comment, reply, and delete own posts | `/app/forum` |
 | Suggested actions | Review monitoring guidance for risk categories | `/app/actions` |
-| Settings | Update profile, picture, and language | `/app/settings` |
+| Settings | Update profile, picture, gender preference, and language; deactivate or delete the account | `/app/settings` |
 
-Signup verification presents a six-digit email code in six separate boxes, one digit per box. The form supports code paste and one-time-code autofill.
+Signup verification presents a six-digit email code in six separate boxes, one digit per box. The form supports code paste and one-time-code autofill. Signup collects name, email, and password plus required terms acknowledgement; profile details are edited later in Settings. Signup no longer requests location or captures device metadata.
+
+Direct-message conversations can be archived per user or deleted for both participants. Account deletion removes the user's messages, reports, community activity, notifications, and group-chat uploads. Deactivation blocks new sign-ins and protected API use; support must restore access.
 
 ## LASSO model
 

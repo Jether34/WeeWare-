@@ -11,33 +11,16 @@ const { sendSignupCode, sendPasswordReset, verifyEmailTransport } = require('../
 const router = express.Router();
 const emailPattern = /^\S+@\S+\.\S+$/;
 const asSignupProfile = (body) => {
-  const rawDevice = body.signupDevice && typeof body.signupDevice === 'object' ? body.signupDevice : {};
-  const rawScreen = rawDevice.screen && typeof rawDevice.screen === 'object' ? rawDevice.screen : {};
-  const rawLocation = body.signupLocation && typeof body.signupLocation === 'object' ? body.signupLocation : {};
-  const numeric = (value) => value !== undefined && Number.isFinite(Number(value)) ? Number(value) : undefined;
-  const latitude = numeric(rawLocation.latitude); const longitude = numeric(rawLocation.longitude);
-  const signupLocation = latitude >= -90 && latitude <= 90 && longitude >= -180 && longitude <= 180
-    ? { latitude, longitude, accuracy: numeric(rawLocation.accuracy), capturedAt: new Date() }
-    : undefined;
   return {
     fullName: String(body.fullName || body.name || '').trim(),
     passwordHash: '',
-    gender: String(body.gender || ''), birthday: body.birthday || null, address: String(body.address || ''), phone: String(body.phone || ''), language: body.language || 'en',
-    acceptedTerms: true, role: 'farmer', accountStatus: 'approved', signupIp: '',
-    signupDevice: {
-      type: String(rawDevice.type || '').slice(0, 40), platform: String(rawDevice.platform || '').slice(0, 100),
-      userAgent: '', language: String(rawDevice.language || '').slice(0, 40),
-      screen: { width: numeric(rawScreen.width), height: numeric(rawScreen.height), pixelRatio: numeric(rawScreen.pixelRatio) },
-      hardwareConcurrency: numeric(rawDevice.hardwareConcurrency), deviceMemory: numeric(rawDevice.deviceMemory),
-    },
-    ...(signupLocation ? { signupLocation } : {}),
+    language: 'en',
+    acceptedTerms: true, role: 'farmer', accountStatus: 'approved',
   };
 };
 function makeSignupData(body, req) {
   const data = asSignupProfile(body);
   data.passwordHash = body.passwordHash;
-  data.signupIp = String(req.ip || '').slice(0, 100);
-  data.signupDevice.userAgent = String(req.get('user-agent') || body.signupDevice?.userAgent || '').slice(0, 500);
   return data;
 }
 function verifySignupForm(body) {
@@ -177,6 +160,7 @@ router.post('/login', async (req, res, next) => {
   try {
     const user = await User.findOne({ email: String(req.body.email || '').toLowerCase() }).select('+passwordHash');
     if (!user || !(await bcrypt.compare(String(req.body.password || ''), user.passwordHash))) return res.status(401).json({ success: false, message: 'Email or password is incorrect.' });
+    if (user.accountStatus === 'deactivated') return res.status(403).json({ success: false, message: 'This account is deactivated. Contact support to restore access.' });
     setSession(res, user);
     res.json({ success: true, user: safeUser(user) });
   } catch (error) { next(error); }

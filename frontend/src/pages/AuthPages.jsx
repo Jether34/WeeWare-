@@ -2,18 +2,8 @@ import { useRef, useState } from 'react';
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../auth';
 import { useTranslation } from 'react-i18next';
-import i18n from '../i18n';
 import LegalDialog from '../components/LegalDialog';
-import DatePicker from '../components/DatePicker';
-import StyledDropdown from '../components/StyledDropdown';
 
-const languageOptions = [['en','English'],['tl','Tagalog'],['ceb','Cebuano'],['hil','Hiligaynon'],['krj','Kinaray-a'],['cyo','Cuyonon']].map(([value,label]) => ({ value, label, code: value.toUpperCase() }));
-const latestAdultBirthDate = () => {
-  const today = new Date();
-  const year = today.getFullYear() - 18;
-  const day = Math.min(today.getDate(), new Date(year, today.getMonth() + 1, 0).getDate());
-  return `${year}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-};
 function EyeIcon({ visible }) { return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.4-6 9.5-6 9.5 6 9.5 6-3.4 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="2.7"/>{!visible && <path d="m4 4 16 16"/>}</svg>; }
 function PasswordVisibilityButton({ visible, onClick, label }) { return <button className="password-visibility" type="button" onMouseDown={(event) => event.preventDefault()} onClick={onClick} aria-label={label} title={label}><EyeIcon visible={visible}/></button>; }
 
@@ -121,37 +111,15 @@ export function SignupPage() {
   const [notice, setNotice] = useState('');
   const [policy, setPolicy] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [form, setForm] = useState(() => ({ fullName: '', email: '', password: '', confirmPassword: '', gender: '', birthday: '', address: '', phone: '', language: localStorage.getItem('weeware-language') || i18n.resolvedLanguage || 'en', acceptedTerms: false }));
+  const [form, setForm] = useState(() => ({ fullName: '', email: '', password: '', acceptedTerms: false }));
   if (user) return <Navigate to="/app" replace/>;
   const update = (key, value) => setForm((old) => ({ ...old, [key]: value }));
-  const selectLanguage = (language) => { update('language', language); i18n.changeLanguage(language); localStorage.setItem('weeware-language', language); };
   async function submit(event) {
     event.preventDefault(); setError('');
-    if (form.password !== form.confirmPassword) { setError(t('passwordMismatch')); return; }
     if (!form.acceptedTerms) { setError(t('acceptPolicies')); return; }
     setBusy(true);
     try {
-      const agent = navigator.userAgent || '';
-      const signupDevice = {
-        type: /tablet|ipad/i.test(agent) ? 'Tablet' : /mobile|android|iphone/i.test(agent) ? 'Mobile' : 'Desktop',
-        platform: navigator.userAgentData?.platform || navigator.platform || '',
-        userAgent: agent,
-        language: navigator.language || '',
-        screen: { width: window.screen?.width, height: window.screen?.height, pixelRatio: window.devicePixelRatio || 1 },
-        hardwareConcurrency: navigator.hardwareConcurrency,
-        deviceMemory: navigator.deviceMemory,
-      };
-      let signupLocation;
-      if (navigator.geolocation) {
-        const position = await new Promise((resolve) => navigator.geolocation.getCurrentPosition(
-          ({ coords }) => resolve({ latitude: coords.latitude, longitude: coords.longitude, accuracy: coords.accuracy }),
-          () => resolve(null),
-          { enableHighAccuracy: true, timeout: 7000, maximumAge: 0 },
-        ));
-        if (position) signupLocation = position;
-      }
-      const payload = { ...form, signupDevice, ...(signupLocation ? { signupLocation } : {}) };
+      const payload = { fullName: form.fullName, email: form.email, password: form.password, acceptedTerms: form.acceptedTerms };
       await signUp(payload);
       setSignupPayload(payload);
       setCodeSent(true);
@@ -180,13 +148,7 @@ export function SignupPage() {
       {codeSent ? <form className="auth-form" onSubmit={verifyCode}><p className="auth-policy-copy">{t('codeExpires', { email: form.email })}</p><div className="field"><label htmlFor="signup-code">{t('verificationCode')}</label><VerificationCodeFields value={verificationCode} onChange={setVerificationCode}/></div><button className="button auth-submit" disabled={busy || verificationCode.replace(/\s/g, '').length !== 6}>{busy ? t('verifying') : t('verifyCreateAccount')}</button><button className="quiet-button" type="button" disabled={busy} onClick={resendCode}>{t('resendCode')}</button></form> : <form className="auth-form signup-form" onSubmit={submit}>
         <div className="field"><label htmlFor="signup-name">{t('fullName')}</label><input id="signup-name" required maxLength="100" autoComplete="name" placeholder={t('yourFullName')} value={form.fullName} onChange={(event) => update('fullName', event.target.value)}/></div>
         <div className="field"><label htmlFor="signup-email">{t('email')}</label><input id="signup-email" type="email" required autoComplete="email" placeholder="you@example.com" value={form.email} onChange={(event) => update('email', event.target.value)}/></div>
-        <div className="form-pair"><div className="field"><label htmlFor="signup-password">{t('password')}</label><div className="auth-password"><input id="signup-password" type={showPassword ? 'text' : 'password'} required minLength="8" autoComplete="new-password" placeholder={t('passwordHint')} value={form.password} onChange={(event) => update('password', event.target.value)}/><PasswordVisibilityButton visible={showPassword} onClick={() => setShowPassword((visible) => !visible)} label={showPassword ? t('hidePassword') : t('showPassword')}/></div></div><div className="field"><label htmlFor="signup-confirm">{t('confirmPassword')}</label><div className="auth-password"><input id="signup-confirm" type={showConfirmPassword ? 'text' : 'password'} required minLength="8" autoComplete="new-password" placeholder={t('confirmPasswordHint')} value={form.confirmPassword} onChange={(event) => update('confirmPassword', event.target.value)}/><PasswordVisibilityButton visible={showConfirmPassword} onClick={() => setShowConfirmPassword((visible) => !visible)} label={showConfirmPassword ? t('hidePassword') : t('showPassword')}/></div></div></div>
-        <div className="form-pair"><div className="field signup-gender-field"><label>{t('gender')} <span className="optional-label">{t('optional')}</span></label><StyledDropdown className="signup-gender-dropdown" label={t('gender')} value={form.gender} onChange={(value) => update('gender', value)} options={[{value:'',label:t('preferNotToSay')},{value:'Female',label:t('female')},{value:'Male',label:t('male')},{value:'Other',label:t('other')}]}/></div><div className="field date-picker-field signup-birthday-field"><label>{t('birthday')} <span className="optional-label">{t('optional')}</span></label><DatePicker value={form.birthday} min="1900-01-01" max={latestAdultBirthDate()} showToday={false} onChange={(value) => update('birthday', value)}/></div></div>
-        <div className="field"><label htmlFor="signup-address">{t('address')} <span className="optional-label">{t('optional')}</span></label><input id="signup-address" autoComplete="street-address" placeholder={t('cityBarangay')} value={form.address} onChange={(event) => update('address', event.target.value)}/></div>
-        <div className="signup-phone-language-row"><div className="field signup-phone-field"><label htmlFor="signup-phone">{t('phone')} <span className="optional-label">{t('optional')}</span></label><input id="signup-phone" type="tel" autoComplete="tel" placeholder={t('mobileNumber')} value={form.phone} onChange={(event) => update('phone', event.target.value)}/></div>
-        <div className="signup-language-row"><span>{t('chooseLanguage')}</span><StyledDropdown className="signup-language-dropdown" label={t('chooseLanguage')} icon value={form.language} options={languageOptions} onChange={selectLanguage}/></div></div>
-        <p className="signup-data-note">{t('signupDataNotice')}</p>
-        <div className="consent-row"><input id="signup-consent" type="checkbox" required checked={form.acceptedTerms} onChange={(event) => update('acceptedTerms', event.target.checked)}/><span><label htmlFor="signup-consent">{t('agreeTo')} </label><button type="button" onClick={() => setPolicy('terms')}>{t('termsOfService')}</button> {t('and')} <button type="button" onClick={() => setPolicy('privacy')}>{t('privacyPolicy')}</button>.</span></div>
+        <div className="form-pair"><div className="field"><label htmlFor="signup-password">{t('password')}</label><div className="auth-password"><input id="signup-password" type={showPassword ? 'text' : 'password'} required minLength="8" autoComplete="new-password" placeholder={t('passwordHint')} value={form.password} onChange={(event) => update('password', event.target.value)}/><PasswordVisibilityButton visible={showPassword} onClick={() => setShowPassword((visible) => !visible)} label={showPassword ? t('hidePassword') : t('showPassword')}/></div></div></div><div className="consent-row"><input id="signup-consent" type="checkbox" required checked={form.acceptedTerms} onChange={(event) => update('acceptedTerms', event.target.checked)}/><span><label htmlFor="signup-consent">{t('agreeTo')} </label><button type="button" onClick={() => setPolicy('terms')}>{t('termsOfService')}</button> {t('and')} <button type="button" onClick={() => setPolicy('privacy')}>{t('privacyPolicy')}</button>.</span></div>
         <button className="button auth-submit" disabled={busy}>{busy ? t('submittingRequest') : t('createAccount')}</button>
       </form>}
       <div className="auth-switch">{t('alreadyHaveAccount')} <Link to="/login">{t('signIn')}</Link></div>

@@ -4,6 +4,7 @@ import L from 'leaflet';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { defaultPalawanLocation, FitPalawanExtent, isPalawanCoordinate, PalawanMangoAreas, savedPalawanPin } from '../components/PalawanMangoAreas';
+import { MapLocationSearch } from '../components/MapLocationSearch';
 
 const center = defaultPalawanLocation;
 const markerIcon = L.divIcon({ className: '', html: '<div style="width:18px;height:18px;border:4px solid white;border-radius:50%;background:#16804b;box-shadow:0 1px 7px #173a2c88"></div>', iconSize: [18, 18], iconAnchor: [9, 9] });
@@ -34,6 +35,7 @@ export default function MapPage() {
     <div className="map-layout">
       <section className="card mango-map-card" style={{ padding: 10 }}>
         <MapContainer center={center} zoom={6} minZoom={5} maxZoom={20} scrollWheelZoom className="map-canvas">
+          <MapLocationSearch onSelect={selectPin} t={t} />
           <PalawanMangoAreas t={t} />
           <FitPalawanExtent />
           <PinSelector onSelect={selectPin} />

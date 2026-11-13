@@ -207,7 +207,27 @@ router.get('/threads', async (req, res, next) => {
     const ids = threads.map((thread) => thread._id);
     const users = await User.find({ _id: { $in: ids } }).select(publicUserFields);
     const byId = new Map(users.map((user) => [String(user._id), user]));
-    res.json({ success: true, threads: threads.map((thread) => ({ user: byId.get(String(thread._id)), latest: safeMessage(thread.latest) })).filter((thread) => thread.user) });
+    const owner = await User.findById(req.user.sub).select('archivedConversations').lean();
+    const archived = new Set((owner?.archivedConversations || []).map(String));
+    res.json({ success: true, threads: threads.map((thread) => ({ user: byId.get(String(thread._id)), latest: safeMessage(thread.latest), archived: archived.has(String(thread._id)) })).filter((thread) => thread.user) });
+  } catch (error) { next(error); }
+});
+
+router.post('/:userId/archive', async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.userId) || req.params.userId === req.user.sub) return res.status(400).json({ success: false, message: 'Choose another valid WeeWare user.' });
+    const archive = req.body?.archived !== false;
+    await User.updateOne({ _id: req.user.sub }, archive ? { $addToSet: { archivedConversations: req.params.userId } } : { $pull: { archivedConversations: req.params.userId } });
+    res.json({ success: true, archived: archive });
+  } catch (error) { next(error); }
+});
+
+router.delete('/:userId', async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.userId) || req.params.userId === req.user.sub) return res.status(400).json({ success: false, message: 'Choose another valid WeeWare user.' });
+    await DirectMessage.deleteMany({ $or: [{ sender: req.user.sub, recipient: req.params.userId }, { sender: req.params.userId, recipient: req.user.sub }] });
+    await User.updateOne({ _id: req.user.sub }, { $pull: { archivedConversations: req.params.userId } });
+    res.json({ success: true });
   } catch (error) { next(error); }
 });
 

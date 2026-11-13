@@ -1,0 +1,72 @@
+{
+  "experiment": "leave-one-year-out",
+  "source": "ml-service\\model_experiments\\35a8782a52494c5ea97dc3f086018427\\experiment.json",
+  "classes": [
+    "Low",
+    "Medium",
+    "High"
+  ],
+  "thresholds_percent": {
+    "low": "<33",
+    "medium": "33 to <66",
+    "high": ">=66"
+  },
+  "matrix_rows_actual_columns_predicted": [
+    [
+      63,
+      2,
+      0
+    ],
+    [
+      28,
+      7,
+      0
+    ],
+    [
+      0,
+      0,
+      0
+    ]
+  ],
+  "support": {
+    "Low": 65,
+    "Medium": 35,
+    "High": 0
+  },
+  "accuracy": 0.7,
+  "balanced_accuracy": 0.5846153846153846,
+  "classification_report": {
+    "Low": {
+      "precision": 0.6923076923076923,
+      "recall": 0.9692307692307692,
+      "f1-score": 0.8076923076923077,
+      "support": 65.0
+    },
+    "Medium": {
+      "precision": 0.7777777777777778,
+      "recall": 0.2,
+      "f1-score": 0.3181818181818182,
+      "support": 35.0
+    },
+    "High": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1-score": 0.0,
+      "support": 0.0
+    },
+    "accuracy": 0.7,
+    "macro avg": {
+      "precision": 0.4900284900284901,
+      "recall": 0.38974358974358975,
+      "f1-score": 0.3752913752913753,
+      "support": 100.0
+    },
+    "weighted avg": {
+      "precision": 0.7222222222222223,
+      "recall": 0.7,
+      "f1-score": 0.6363636363636364,
+      "support": 100.0
+    }
+  },
+  "note": "Exploratory grouped leave-one-year-out predictions; class metrics are limited by the small, imbalanced and non-independent dataset."
+}

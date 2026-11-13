@@ -117,7 +117,7 @@ export default function ResearcherDashboardPage() {
   const activeExperiment = experiments.find((experiment) => experiment.active);
 
   return <div className="page role-tool-page researcher-dashboard-page">
-    <header className="role-tool-heading"><div><span className="section-kicker">RESEARCH WORKSPACE</span><h1 className="page-title">LASSO model dashboard</h1><p className="page-subtitle">Retrain the production model, configure prediction behavior, review model versions, and monitor live activity.</p></div><span className={`role-tool-badge ${training.state === 'running' ? 'training-badge' : ''}`}>{training.state === 'running' ? 'Retraining live' : 'Researcher access'}</span></header>
+    <header className="role-tool-heading"><div><span className="section-kicker">RESEARCH WORKSPACE</span><h1 className="page-title">LASSO model dashboard</h1><p className="page-subtitle">Model controls, validation, and activity.</p></div><span className={`role-tool-badge ${training.state === 'running' ? 'training-badge' : ''}`}>{training.state === 'running' ? 'Retraining live' : 'Researcher access'}</span></header>
 
     {(error || notice) && <div className={`iteration-notice ${error ? 'research-error' : ''}`} role={error ? 'alert' : 'status'}><strong>{error ? 'Action needed' : 'Workspace update'}</strong><span>{error || notice}</span></div>}
 

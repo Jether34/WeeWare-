@@ -5,6 +5,9 @@ const DirectMessage = require('../models/DirectMessage');
 const Post = require('../models/Post');
 const Comment = require('../models/Comment');
 const mongoose = require('mongoose');
+const fs = require('fs');
+const path = require('path');
+const env = require('../config/env');
 const { requireAuth } = require('../middleware/auth');
 const upload = require('../middleware/upload');
 
@@ -66,6 +69,15 @@ router.put('/me/password', requireAuth, async (req, res, next) => {
   } catch (error) { next(error); }
 });
 
+router.post('/me/deactivate', requireAuth, async (req, res, next) => {
+  try {
+    const user = await User.findByIdAndUpdate(req.user.sub, { $set: { accountStatus: 'deactivated' } }, { new: true });
+    if (!user) return res.status(404).json({ success: false, message: 'Account not found.' });
+    res.clearCookie('weeware_token');
+    res.json({ success: true });
+  } catch (error) { next(error); }
+});
+
 router.delete('/me', requireAuth, async (req, res, next) => {
   try {
     const Prediction = require('../models/Prediction');
@@ -73,6 +85,14 @@ router.delete('/me', requireAuth, async (req, res, next) => {
     const Post = require('../models/Post');
     const Comment = require('../models/Comment');
     const Notification = require('../models/Notification');
+    const GroupMessage = require('../models/GroupMessage');
+    const GroupFile = require('../models/GroupFile');
+    const [ownGroupMessages, ownGroupFiles] = await Promise.all([
+      GroupMessage.find({ sender: req.user.sub }).select('attachment').lean(),
+      GroupFile.find({ owner: req.user.sub }).select('storageName').lean(),
+    ]);
+    const groupFileIds = [...new Set([...ownGroupMessages.map((message) => String(message.attachment || '')).filter(Boolean), ...ownGroupFiles.map((file) => String(file._id))])];
+    const messageFiles = await GroupFile.find({ _id: { $in: groupFileIds } }).select('storageName').lean();
     await Promise.all([
       Prediction.deleteMany({ user: req.user.sub }),
       SavedPrediction.deleteMany({ user: req.user.sub }),
@@ -82,7 +102,11 @@ router.delete('/me', requireAuth, async (req, res, next) => {
       DirectMessage.deleteMany({ $or: [{ sender: req.user.sub }, { recipient: req.user.sub }] }),
       Post.updateMany({ likes: req.user.sub }, { $pull: { likes: req.user.sub } }),
       Comment.updateMany({ likes: req.user.sub }, { $pull: { likes: req.user.sub } }),
+      User.updateMany({ archivedConversations: req.user.sub }, { $pull: { archivedConversations: req.user.sub } }),
+      GroupMessage.deleteMany({ sender: req.user.sub }),
+      GroupFile.deleteMany({ _id: { $in: groupFileIds } }),
     ]);
+    await Promise.all(messageFiles.map((file) => fs.promises.unlink(path.join(env.groupUploadDir, file.storageName)).catch((error) => { if (error.code !== 'ENOENT') throw error; })));
     await User.findByIdAndDelete(req.user.sub);
     res.clearCookie('weeware_token');
     res.json({ success: true });

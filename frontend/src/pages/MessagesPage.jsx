@@ -38,6 +38,7 @@ export default function MessagesPage() {
   const [messages, setMessages] = useState([]);
   const [conversationLoading, setConversationLoading] = useState(false);
   const [search, setSearch] = useState('');
+  const [showArchived, setShowArchived] = useState(false);
   const [matches, setMatches] = useState([]);
   const [draft, setDraft] = useState('');
   const [isMobileViewport, setIsMobileViewport] = useState(() => window.matchMedia('(max-width: 760px)').matches);
@@ -241,6 +242,16 @@ export default function MessagesPage() {
     finally { setBusy(false); }
   }
 
+  async function archiveThread(thread) {
+    try { await api.post(`/messages/${idOf(thread.user)}/archive`, { archived: !thread.archived }); await loadThreads(); }
+    catch (err) { setError(err.message); }
+  }
+  async function deleteThread(thread) {
+    if (!window.confirm(`Delete this conversation with ${thread.user.fullName}? This removes the messages for both people.`)) return;
+    try { await api.delete(`/messages/${idOf(thread.user)}`); setThreads((rows) => rows.filter((row) => idOf(row.user) !== idOf(thread.user))); if (selectedId === idOf(thread.user)) { setPeer(null); setMessages([]); setParams({}, { replace: true }); } }
+    catch (err) { setError(err.message); }
+  }
+
   async function sendBroadcast(event) {
     event.preventDefault();
     const content = broadcastDraft.trim();
@@ -320,13 +331,13 @@ export default function MessagesPage() {
           const account = pinnedAccounts[key];
           return account ? <button key={key} type="button" onClick={() => openThread(account)} className={`conversation-button pinned-account ${selectedId === idOf(account) ? 'selected' : ''}`}><img src={roleAvatar(account)} loading="eager" decoding="async" fetchPriority="high" width="38" height="38" onError={(event) => { event.currentTarget.onerror = null; event.currentTarget.src = '/assets/weeware.png'; }} alt=""/><span><strong>{account.fullName || label}</strong><small>{subtitle}</small></span></button> : <button key={key} type="button" onClick={() => openPinnedAccount(key, label)} className="conversation-button pinned-account unavailable"><img src="/assets/weeware-vps-logo.png" loading="eager" decoding="async" width="38" height="38" alt=""/><span><strong>{label}</strong><small>{key === 'da' ? 'No DA account is configured · tap to retry' : `${subtitle} · tap to load account`}</small></span></button>;
         })}</div>
-        <div className="pinned-heading conversation-section-heading">All messages</div>
+        <div className="pinned-heading conversation-section-heading"><span>{showArchived ? 'Archived messages' : 'All messages'}</span><button type="button" className="quiet-button" onClick={() => setShowArchived((value) => !value)}>{showArchived ? 'Show inbox' : 'Show archived'}</button></div>
         <div className="conversation-list conversation-history-list">
           {threads.filter((thread) => {
             const pinned = visiblePinnedAccounts.map(([key]) => pinnedAccounts[key]).filter(Boolean);
             const matchesSearch = !search.trim() || thread.user?.fullName?.toLowerCase().includes(search.trim().toLowerCase());
-            return !pinned.some((account) => idOf(account) === idOf(thread.user)) && matchesSearch;
-          }).map((thread) => <button key={idOf(thread.user)} onClick={() => { setBroadcastMode(false); openThread(thread.user); }} className={`conversation-button ${selectedId === idOf(thread.user) ? 'selected' : ''}`}><img src={roleAvatar(thread.user)} loading="eager" decoding="async" fetchPriority="high" width="38" height="38" onError={(event) => { event.currentTarget.onerror = null; event.currentTarget.src = '/assets/weeware.png'; }} alt=""/><span><strong>{thread.user.fullName}</strong><small>Message</small></span></button>)}
+            return !pinned.some((account) => idOf(account) === idOf(thread.user)) && matchesSearch && Boolean(thread.archived) === showArchived;
+          }).map((thread) => <div className="message-thread-row" key={idOf(thread.user)}><button onClick={() => { setBroadcastMode(false); openThread(thread.user); }} className={`conversation-button ${selectedId === idOf(thread.user) ? 'selected' : ''}`}><img src={roleAvatar(thread.user)} loading="eager" decoding="async" fetchPriority="high" width="38" height="38" onError={(event) => { event.currentTarget.onerror = null; event.currentTarget.src = '/assets/weeware.png'; }} alt=""/><span><strong>{thread.user.fullName}</strong><small>{thread.archived ? 'Archived' : 'Message'}</small></span></button><div className="message-thread-actions"><button type="button" onClick={() => archiveThread(thread)}>{thread.archived ? 'Restore' : 'Archive'}</button><button type="button" onClick={() => deleteThread(thread)}>Delete</button></div></div>)}
           {matches.filter((person) => !threads.some((thread) => idOf(thread.user) === idOf(person)) && !visiblePinnedAccounts.some(([key]) => idOf(pinnedAccounts[key]) === idOf(person))).map((person) => <button key={idOf(person)} onClick={() => openThread(person)} className="conversation-button"><img src={assetUrl(person.profilePicture) || '/assets/weeware.png'} loading="eager" decoding="async" fetchPriority="high" width="38" height="38" onError={(event) => { event.currentTarget.onerror = null; event.currentTarget.src = '/assets/weeware.png'; }} alt=""/><span><strong>{person.fullName}</strong><small>Start a conversation</small></span></button>)}
           {threads.filter((thread) => !search.trim() || thread.user?.fullName?.toLowerCase().includes(search.trim().toLowerCase())).length === 0 && matches.length === 0 && shownPinnedAccounts.length === 0 && <p className="muted conversation-empty">{search ? 'No matching conversations or users.' : 'Search for a member to start a conversation.'}</p>}
         </div>

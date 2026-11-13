@@ -70,6 +70,11 @@ export default function SettingsPage() {
     try { await api.delete('/users/me'); await signOut(); navigate('/'); }
     catch (err) { setError(err.message); }
   }
+  async function deactivateAccount() {
+    if (!window.confirm(t('Deactivate your account? You will be signed out and cannot sign in until support restores access.'))) return;
+    try { await api.post('/users/me/deactivate'); await signOut(); navigate('/', { replace: true }); }
+    catch (err) { setError(err.message); }
+  }
 
   return <div className="page settings-page">
     <header className="settings-heading"><div><h1 className="page-title">{t('Profile settings')}</h1><p className="page-subtitle">{t('Manage your profile, password, and account.')}</p></div>{(notice || error) && <p className={error ? 'error settings-feedback' : 'success settings-feedback'} role="status">{error || notice}</p>}</header>
@@ -80,7 +85,7 @@ export default function SettingsPage() {
         <div className="settings-fields-grid">
           <div className="field"><label>{t('Full name')}</label><input required maxLength="100" value={profile.fullName} onChange={(event) => updateProfile('fullName', event.target.value)}/></div>
           <div className="field"><label>{t('Email address')}</label><input type="email" readOnly value={profile.email}/></div>
-          <div className="field"><label>{t('Gender')}</label><input value={profile.gender} onChange={(event) => updateProfile('gender', event.target.value)}/></div>
+          <div className="field"><label>{t('Gender')}</label><StyledDropdown value={profile.gender || 'Prefer not to say'} options={['Prefer not to say', 'Female', 'Male', 'Other'].map((value) => ({ value, label: t(value) }))} onChange={(value) => updateProfile('gender', value === 'Prefer not to say' ? '' : value)} label={t('Gender')}/></div>
           <div className="field date-picker-field"><label>{t('Birthday')}</label><DatePicker value={profile.birthday} min="1900-01-01" max={new Date().toISOString().slice(0, 10)} showToday={false} onChange={(birthday) => updateProfile('birthday', birthday)}/></div>
           <div className="field"><label>{t('Phone')}</label><input value={profile.phone} onChange={(event) => updateProfile('phone', event.target.value)}/></div>
           <div className="field settings-language-field"><label>{t('Language')}</label><StyledDropdown value={profile.language || 'en'} options={languages.map(([value, label]) => ({ value, label, code: value.toUpperCase() }))} onChange={(value) => updateProfile('language', value)} label={t('Choose language')} icon/></div>
@@ -99,7 +104,7 @@ export default function SettingsPage() {
         <button className="button secondary" disabled={passwordBusy}>{passwordBusy ? t('Updating…') : t('Update password')}</button>
       </form>
 
-      <section className="card settings-card delete-settings-card"><div><h2>{t('Delete account')}</h2><p>{t('This permanently removes your profile, messages, predictions, saved reports, posts, and comments.')}</p></div><button className="button danger" onClick={deleteAccount}>{t('Delete my account')}</button></section>
+      <section className="card settings-card delete-settings-card"><div><h2>{t('Account controls')}</h2><p>{t('Deactivate to block sign-in, or permanently delete your profile and WeeWare activity. Deletion cannot be undone.')}</p></div><div className="row"><button className="button secondary" onClick={deactivateAccount}>{t('Deactivate account')}</button><button className="button danger" onClick={deleteAccount}>{t('Delete my account')}</button></div></section>
     </div>
     <button type="button" className="button secondary mobile-settings-signout" onClick={signOutToLanding}>{t('signOut')}</button>
   </div>;

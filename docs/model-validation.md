@@ -40,3 +40,5 @@ For one fixed 2026 weather input, the archived model produced 1.81% and the retr
 - The output is a model estimate, not a calibrated probability or a farm-level diagnosis. Field observations remain necessary.
 
 See the [client report](../reports/palawan_lasso_retraining/WeeWare_Palawan_LASSO_Retraining_Report.pdf) for a plain-language summary and figures.
+
+The recorded leave-one-year-out risk-class confusion matrix is available in [model validation artifacts](../reports/model_validation/README.md). It uses the deployed 33% and 66% cutoffs. No High-risk examples occur in the held-out sample, so High-class performance cannot be estimated; interpret accuracy with class support and the continuous MAE/RMSE.

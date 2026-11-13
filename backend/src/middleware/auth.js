@@ -18,7 +18,14 @@ function optionalAuth(req, _res, next) {
 }
 
 function requireAuth(req, res, next) {
-  optionalAuth(req, res, () => req.user ? next() : res.status(401).json({ success: false, message: 'Please sign in to continue.' }));
+  optionalAuth(req, res, () => {
+    if (!req.user) return res.status(401).json({ success: false, message: 'Please sign in to continue.' });
+    require('../models/User').findById(req.user.sub).select('accountStatus').lean().then((account) => {
+      if (!account) return res.status(401).json({ success: false, message: 'Please sign in to continue.' });
+      if (account.accountStatus === 'deactivated') return res.status(403).json({ success: false, message: 'This account is deactivated.' });
+      next();
+    }).catch(next);
+  });
 }
 
 function requireAdmin(req, res, next) {

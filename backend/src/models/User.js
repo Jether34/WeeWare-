@@ -34,9 +34,10 @@ const userSchema = new mongoose.Schema({
     accuracy: Number,
     capturedAt: Date,
   },
-  accountStatus: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'approved', index: true },
+  accountStatus: { type: String, enum: ['pending', 'approved', 'rejected', 'deactivated'], default: 'approved', index: true },
   role: { type: String, enum: ['farmer', 'researcher', 'admin', 'da'], default: 'farmer' },
   lastLocation: { lat: Number, lng: Number, updatedAt: Date },
+  archivedConversations: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
 }, { timestamps: true });
 
 module.exports = mongoose.model('User', userSchema);

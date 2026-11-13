@@ -106,6 +106,18 @@ router.get('/:id/report', async (req, res, next) => {
     pdf.text(`Generated: ${item.createdAt.toISOString().slice(0, 10)}`).moveDown();
     pdf.fontSize(16).text(`Estimated infestation: ${item.infestationRate}% (${item.riskCategory} risk)`);
     if (Number.isFinite(item.confidenceLevel)) pdf.fontSize(11).text(`Confidence: ${item.confidenceLevel}%`).moveDown();
+    const chartX = 48; const chartY = pdf.y + 12; const chartW = 500; const chartH = 22;
+    const rate = Math.max(0, Math.min(100, Number(item.infestationRate) || 0));
+    pdf.fontSize(10).fillColor('#33483a').text('Prediction result (%)', chartX, chartY - 2);
+    pdf.roundedRect(chartX, chartY + 16, chartW, chartH, 5).fill('#edf2ee');
+    pdf.roundedRect(chartX, chartY + 16, Math.max(4, chartW * rate / 100), chartH, 5).fill(item.riskCategory === 'High' ? '#bd5144' : item.riskCategory === 'Medium' ? '#d5a038' : '#3f9863');
+    for (const threshold of [33, 66]) {
+      const x = chartX + chartW * threshold / 100;
+      pdf.moveTo(x, chartY + 10).lineTo(x, chartY + 43).lineWidth(1).stroke('#596c60');
+      pdf.fontSize(8).fillColor('#596c60').text(`${threshold}%`, x - 12, chartY + 43, { width: 28, align: 'center' });
+    }
+    pdf.fontSize(8).fillColor('#596c60').text('0%', chartX, chartY + 43).text('100%', chartX + chartW - 25, chartY + 43);
+    pdf.y = chartY + 64;
     pdf.text('Weather values used:');
     Object.entries(item.weather || {}).forEach(([key, value]) => pdf.text(`${key}: ${value}`));
     pdf.moveDown().text(`Suggested action: ${item.suggestedAction || ''}`);
