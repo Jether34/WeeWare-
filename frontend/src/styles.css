@@ -136,3 +136,14 @@
 .topbar-language-picker .language-option.active small{background:#dceee1;color:#286443}
 @keyframes language-menu-enter{from{opacity:0;transform:translateY(-4px) scale(.99)}to{opacity:1;transform:translateY(0) scale(1)}}
 @media(max-width:760px){.topbar-language-picker .language-trigger{min-height:38px;gap:6px;padding:0 8px;border-radius:12px;font-size:11px}.topbar-language-picker .language-trigger svg:first-child{width:15px;height:15px}.topbar-language-picker .language-trigger .language-chevron{width:11px;height:11px}.topbar-language-picker .language-menu{right:-8px;width:218px}}
+
+@media(max-width:760px){
+  .settings-gender-dropdown{z-index:1800}
+  .settings-gender-dropdown .language-menu{left:50%;right:auto;width:min(280px,calc(100vw - 36px));max-height:min(45vh,300px);transform:translateX(-50%);animation:gender-menu-enter .14s ease-out}
+}
+@keyframes gender-menu-enter{from{opacity:0;transform:translate(-50%,-5px)}to{opacity:1;transform:translate(-50%,0)}}
+@media(max-width:760px){
+  .settings-gender-field{grid-column:1 / -1}
+  .settings-gender-dropdown{z-index:1800;width:100%}
+  .settings-gender-dropdown .language-trigger{width:100%;justify-content:space-between}
+}

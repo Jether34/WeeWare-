@@ -7,11 +7,10 @@ import DatePicker from '../components/DatePicker';
 import StyledDropdown from '../components/StyledDropdown';
 import ConfirmDialog from '../components/ConfirmDialog';
 
-const emptyProfile = { fullName: '', email: '', gender: '', birthday: '', address: '', phone: '', language: 'en', profilePicture: '', publicProfile: { email: false, gender: false, birthday: false, address: false, phone: false } };
-const languages = [['en', 'English'], ['tl', 'Tagalog'], ['ceb', 'Cebuano'], ['hil', 'Hiligaynon'], ['krj', 'Kinaray-a'], ['cyo', 'Kuyonon']];
+const emptyProfile = { fullName: '', email: '', gender: '', birthday: '', address: '', phone: '', profilePicture: '', publicProfile: { email: false, gender: false, birthday: false, address: false, phone: false } };
 
 export default function SettingsPage() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const { user, setUser, signOut } = useAuth();
   const navigate = useNavigate();
   const [profile, setProfile] = useState(emptyProfile);
@@ -40,7 +39,7 @@ export default function SettingsPage() {
   async function saveProfile(event) {
     event.preventDefault(); setBusy(true); setNotice(''); setError('');
     try {
-      const fields = Object.fromEntries(['fullName', 'gender', 'birthday', 'address', 'phone', 'language'].map((key) => [key, profile[key] || '']));
+      const fields = Object.fromEntries(['fullName', 'gender', 'birthday', 'address', 'phone'].map((key) => [key, profile[key] || '']));
       const payload = { ...fields, publicProfile: { ...emptyProfile.publicProfile, ...(profile.publicProfile || {}) } };
       let requestBody = payload;
       let config;
@@ -53,7 +52,7 @@ export default function SettingsPage() {
         config = {};
       }
       const { data } = await api.put('/users/me', requestBody, config);
-      setUser({ ...data.user, id: data.user.id || data.user._id }); setNotice(t('Profile saved.')); if (profile.language && profile.language !== i18n.resolvedLanguage) { await i18n.changeLanguage(profile.language); localStorage.setItem('weeware-language', profile.language); } setFile(null);
+      setUser({ ...data.user, id: data.user.id || data.user._id }); setNotice(t('Profile saved.')); setFile(null);
     } catch (err) { setError(err.message); }
     finally { setBusy(false); }
   }
@@ -89,10 +88,9 @@ export default function SettingsPage() {
         <div className="settings-fields-grid">
           <div className="field"><label>{t('Full name')}</label><input required maxLength="100" value={profile.fullName} onChange={(event) => updateProfile('fullName', event.target.value)}/></div>
           <div className="field"><label>{t('Email address')}</label><input type="email" readOnly value={profile.email}/></div>
-          <div className="field"><label>{t('Gender')}</label><StyledDropdown value={profile.gender || 'Prefer not to say'} options={['Prefer not to say', 'Female', 'Male', 'Other'].map((value) => ({ value, label: t(value) }))} onChange={(value) => updateProfile('gender', value === 'Prefer not to say' ? '' : value)} label={t('Gender')}/></div>
+          <div className="field settings-gender-field"><label>{t('Gender')}</label><StyledDropdown className="settings-gender-dropdown" value={profile.gender || 'Prefer not to say'} options={['Prefer not to say', 'Female', 'Male', 'Other'].map((value) => ({ value, label: t(value) }))} onChange={(value) => updateProfile('gender', value === 'Prefer not to say' ? '' : value)} label={t('Gender')}/></div>
           <div className="field date-picker-field"><label>{t('Birthday')}</label><DatePicker value={profile.birthday} min="1900-01-01" max={new Date().toISOString().slice(0, 10)} showToday={false} onChange={(birthday) => updateProfile('birthday', birthday)}/></div>
           <div className="field"><label>{t('Phone')}</label><input value={profile.phone} onChange={(event) => updateProfile('phone', event.target.value)}/></div>
-          <div className="field settings-language-field"><label>{t('Language')}</label><StyledDropdown value={profile.language || 'en'} options={languages.map(([value, label]) => ({ value, label, code: value.toUpperCase() }))} onChange={(value) => updateProfile('language', value)} label={t('Choose language')} icon/></div>
           <div className="field settings-address-field"><label>{t('Address')}</label><input value={profile.address} onChange={(event) => updateProfile('address', event.target.value)}/></div>
         </div>
         <fieldset className="profile-visibility"><legend>{t('Public profile')}</legend><p>{t('Choose which personal details other WeeWare members can see.')}</p>
