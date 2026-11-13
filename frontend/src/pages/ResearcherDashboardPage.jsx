@@ -8,6 +8,7 @@ function Metric({ label, value, detail }) {
 }
 
 function WekaEvaluationView({ result, onDownload, onExport }) {
+  const [selectedCell, setSelectedCell] = useState(null);
   if (!result) return null;
   const risk = result.risk_evaluation;
   const points = result.predictions || [];
@@ -15,6 +16,15 @@ function WekaEvaluationView({ result, onDownload, onExport }) {
   const x = (value) => 38 + (Number(value) / extent) * 260;
   const y = (value) => 188 - (Number(value) / extent) * 158;
   const metric = (value) => Number(value).toFixed(3);
+  const selectedPredictions = selectedCell
+    ? points.filter((point) => point.actual_risk === selectedCell.actual && point.predicted_risk === selectedCell.predicted)
+    : points.slice(0, 20);
+  const classIndex = selectedCell ? risk.labels.indexOf(selectedCell.actual) : -1;
+  const tp = classIndex >= 0 ? risk.matrix[classIndex][classIndex] : 0;
+  const fp = classIndex >= 0 ? risk.matrix.reduce((sum, row, rowIndex) => sum + (rowIndex === classIndex ? 0 : row[classIndex]), 0) : 0;
+  const fn = classIndex >= 0 ? risk.matrix[classIndex].reduce((sum, count, colIndex) => sum + (colIndex === classIndex ? 0 : count), 0) : 0;
+  const total = risk.matrix.reduce((sum, row) => sum + row.reduce((rowSum, count) => rowSum + count, 0), 0);
+  const tn = total - tp - fp - fn;
   return <div className="weka-evaluation" aria-live="polite">
     <div className="validation-metrics weka-result-metrics">
       <Metric label="Cross-validation MAE" value={metric(result.metrics.mae)} detail="percentage points; lower is better"/>
@@ -36,12 +46,13 @@ function WekaEvaluationView({ result, onDownload, onExport }) {
     </section>
     <section className="weka-evaluation-section">
       <div className="weka-evaluation-title"><div><h3>Risk-band confusion matrix</h3><p>Actual bands are rows; predicted bands are columns. Thresholds: Low &lt; {risk.thresholds.low}%, Medium &lt; {risk.thresholds.high}%, High otherwise.</p></div></div>
-      <div className="research-table-wrap"><table className="research-data-table weka-confusion-table"><thead><tr><th>Actual ↓ / Predicted →</th>{risk.labels.map((label) => <th key={label}>{label}</th>)}</tr></thead><tbody>{risk.matrix.map((row, index) => <tr key={risk.labels[index]}><th>{risk.labels[index]}</th>{row.map((count, column) => <td key={risk.labels[column]}>{count}</td>)}</tr>)}</tbody></table></div>
+      <div className="research-table-wrap"><table className="research-data-table weka-confusion-table"><thead><tr><th>Actual ↓ / Predicted →</th>{risk.labels.map((label) => <th key={label}>{label}</th>)}</tr></thead><tbody>{risk.matrix.map((row, index) => <tr key={risk.labels[index]}><th>{risk.labels[index]}</th>{row.map((count, column) => { const isSelected = selectedCell?.actual === risk.labels[index] && selectedCell?.predicted === risk.labels[column]; return <td key={risk.labels[column]}><button type="button" className={`weka-confusion-cell ${isSelected ? 'is-selected' : ''}`} aria-pressed={isSelected} aria-label={`${count} actual ${risk.labels[index]} predicted ${risk.labels[column]}`} onClick={() => setSelectedCell(isSelected ? null : { actual: risk.labels[index], predicted: risk.labels[column] })}>{count}</button></td>; })}</tr>)}</tbody></table></div>
       <div className="research-table-wrap"><table className="research-data-table weka-class-metrics"><thead><tr><th>Risk band</th><th>Support</th><th>Precision</th><th>Recall</th><th>F1</th></tr></thead><tbody>{risk.per_class.map((item) => <tr key={item.name}><th>{item.name}</th><td>{item.support}</td><td>{metric(item.precision)}</td><td>{metric(item.recall)}</td><td>{metric(item.f1)}</td></tr>)}</tbody></table></div>
+      <div className="weka-matrix-guide" aria-live="polite"><strong>{selectedCell ? `${selectedPredictions.length} held-out rows: Actual ${selectedCell.actual} → Predicted ${selectedCell.predicted}` : 'Select any matrix cell to inspect its held-out rows'}</strong>{selectedCell && <span>For the {selectedCell.actual} class: TP {tp} · FP {fp} · FN {fn} · TN {tn}. The prediction list below is filtered to the selected cell.</span>}<small>Diagonal cells are correct classifications; off-diagonal cells show which risk band was confused.</small></div>
     </section>
     <section className="weka-evaluation-section">
-      <div className="weka-evaluation-title"><div><h3>Cross-validation predictions</h3><p>Showing the first {Math.min(20, points.length)} of {points.length} held-out predictions, in Weka output order.</p></div></div>
-      <div className="research-table-wrap weka-prediction-scroll"><table className="research-data-table"><thead><tr><th>CV row</th><th>Observed %</th><th>Predicted %</th><th>Abs. error</th><th>Actual risk</th><th>Predicted risk</th></tr></thead><tbody>{points.slice(0, 20).map((point) => <tr key={point.row}><td>{point.row}</td><td>{point.actual.toFixed(3)}</td><td>{point.predicted.toFixed(3)}</td><td>{point.absolute_error.toFixed(3)}</td><td>{point.actual_risk}</td><td>{point.predicted_risk}</td></tr>)}</tbody></table></div>
+      <div className="weka-evaluation-title"><div><h3>Cross-validation predictions</h3><p>{selectedCell ? `Showing all ${selectedPredictions.length} rows matching the selected confusion-matrix cell.` : `Showing the first ${Math.min(20, points.length)} of ${points.length} held-out predictions, in Weka output order.`}</p></div>{selectedCell && <button type="button" className="button secondary" onClick={() => setSelectedCell(null)}>Clear matrix filter</button>}</div>
+      <div className="research-table-wrap weka-prediction-scroll"><table className="research-data-table"><thead><tr><th>CV row</th><th>Observed %</th><th>Predicted %</th><th>Abs. error</th><th>Actual risk</th><th>Predicted risk</th></tr></thead><tbody>{selectedPredictions.map((point) => <tr key={point.row}><td>{point.row}</td><td>{point.actual.toFixed(3)}</td><td>{point.predicted.toFixed(3)}</td><td>{point.absolute_error.toFixed(3)}</td><td>{point.actual_risk}</td><td>{point.predicted_risk}</td></tr>)}</tbody></table></div>
     </section>
     <p className="research-footnote">Dataset: {result.filename} · {result.validation} · {result.rows} rows · features: {result.features.join(', ')}. {result.note}</p>
   </div>;

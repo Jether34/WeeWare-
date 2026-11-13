@@ -1,11 +1,11 @@
-﻿# WeeWare data inventory
+# WeeWare data inventory
 
 ## Preserved application data
 
 | Destination | Source | Use |
 |---|---|---|
 | `datasets/training/WEEWARE FINAL DATASET 2014-2025.csv` | Google Drive `LASSO Datasets` archive | Annual training rows and historical observed climate features |
-| `ml-service/models/lasso_weevil_model.joblib` | Palawan retraining experiment 35a8782a52494c5ea97dc3f086018427 | Active retrained LASSO estimator for the Palawan-wide annual dataset |
+| `ml-service/models/lasso_weevil_model.joblib` | Final dataset retraining experiment 264192d1bf394c0eb85644180c250bdd | Active LASSO estimator; 12 Palawan-wide annual records, with LOYO error above the mean baseline |
 | `ml-service/models/lasso_weevil_model.pre-retrain.joblib` | Google Drive backend archive | Archived prior LASSO estimator for comparison |
 | `datasets/legacy/forum-media.bin` | Google Drive `LASSO Datasets` archive | Preserved legacy media binary; not interpreted by the new API |
 
@@ -27,9 +27,9 @@ The seven extracted NetCDF files are preserved in `datasets/climate/netcdf`; the
 
 | File | SHA-256 |
 |---|---|
-| `datasets/training/WEEWARE FINAL DATASET 2014-2025.csv` | `C3BC3EA8D4EF1CDEC9138541F904C5C5B98F0527B963454FA92B156139E7C2A8` |
+| `datasets/training/WEEWARE FINAL DATASET 2014-2025.csv` | `4899C1EDC250743A49E7E594B3CB214F5742CBFF627415CDF29061CEAE2FDD0A` |
 | `datasets/legacy/forum-media.bin` | `F9BDAECD3B635787E570B908AB7CA8EADF95E23700068A048A01A282D4D3717A` |
-| `ml-service/models/lasso_weevil_model.joblib` | `6F9CD60D98B7CD9D5986B69AE030B6E7A67ADFF0F30DA63F8CDDC89FB21EE24F` |
+| `ml-service/models/lasso_weevil_model.joblib` | `DA37DCB61D499B472C617AC16FE7166C77A5E500E94A03D4693A0AAADF96FDDE` |
 | `hurs_Amon_CanESM5_dcppB-forecast_s2022-r19i1p2f1_gn_202301-203212.nc` | `ED679270CDCCBB208081BB1407560F082424A1B35D674729AA69950E10615440` |
 | `pr_Amon_CanESM5-1_ssp245_r1i1p1f1_gn_201501010130-202012312230.nc` | `E9FA7E279C5CDB40CAE4C49AC7BC1CE28CA846021473DF09AF2E78C6B97FFC2E` |
 | `pr_Amon_CanESM5-1_ssp245_r1i1p1f1_gn_202101010130-203012312230.nc` | `3ECFDCFC9BEB78B8B4BDA2FF25214EB7D9A01782EC5D8A58890624AF7620C9F6` |

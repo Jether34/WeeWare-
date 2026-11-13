@@ -1,10 +1,21 @@
-﻿# Palawan LASSO retraining and validation
+# Palawan LASSO retraining and validation
+
+## Current active retrain (13 November 2026)
+
+The active artifact was retrained from `datasets/training/WEEWARE FINAL DATASET 2014-2025.csv` and is recorded as experiment `264192d1bf394c0eb85644180c250bdd`. The source has 12 annual Palawan-wide observations (one per year from 2014 to 2025), not location-level observations. It uses fixed alpha 0.05 and a 0-5 output range.
+
+| Validation | MAE (percentage points) | RMSE (percentage points) |
+|---|---:|---:|
+| Active LASSO, leave-one-year-out | 0.883 | 1.063 |
+| Training-mean baseline, leave-one-year-out | 0.666 | 0.847 |
+
+The active run scores worse than the mean baseline on both measures, and it has no held-out-location validation. The system activated it because the training route deploys completed runs automatically; these results do not support treating it as a reliable forecasting model. The earlier 100-row, location-year experiment and its validation evidence are documented below as historical results. Collect more independent location-year observations and compare against the baseline before relying on forecasts.
 
 ## Training data and model
 
-The active model was trained from `datasets/processed/climate_training/palawan_retraining_dataset.csv`. It contains 100 annual location records from 23 Palawan municipalities/city and 12 distinct years (2014-2025), with rainfall, temperature, humidity, solar radiation, and wind as inputs. The target is infestation rate in percent. The source table combines the available existing annual records and infestation observations with annual NASA POWER weather estimates at municipality centres; those are not farm-level weather measurements.
+The previous model was trained from `datasets/processed/climate_training/palawan_retraining_dataset.csv`. It contains 100 annual location records from 23 Palawan municipalities/city and 12 distinct years (2014-2025), with rainfall, temperature, humidity, solar radiation, and wind as inputs. The target is infestation rate in percent. The source table combines the available existing annual records and infestation observations with annual NASA POWER weather estimates at municipality centres; those are not farm-level weather measurements.
 
-The training run is recorded as experiment `35a8782a52494c5ea97dc3f086018427`. It uses a StandardScaler + LASSO pipeline with fixed alpha 0.05 and a 0-100 output scale. The archived previous artifact is `ml-service/models/lasso_weevil_model.pre-retrain.joblib`; the active artifact is `ml-service/models/lasso_weevil_model.joblib`.
+This historical run is experiment `35a8782a52494c5ea97dc3f086018427`. It used a StandardScaler + LASSO pipeline with fixed alpha 0.05 and a 0-100 output scale. It has been superseded by the current active run above; its prior artifact is preserved as `ml-service/models/lasso_weevil_model.pre-retrain.joblib`.
 
 The infestation target is not fully uniform: the prepared data inventory reports 12 rows from earlier annual labels, 36 rows calculated as damaged amount divided by estimated harvest, and 52 rows using an unweighted average of sampled monthly rates. In addition, 65 annual records reuse a location's infestation label across years. Weather uses NASA POWER values at municipality-center coordinates, not farm or necessarily station measurements. These factors limit the independence and comparability of the target labels.
 
@@ -29,7 +40,7 @@ The validation pattern points to limited independent data, mixed/reused infestat
 
 ## Prediction comparison
 
-For one fixed 2026 weather input, the archived model produced 1.81% and the retrained model produced 36.91%. The old model was limited to a 0-5 scale while the new model uses a 0-100 scale, and their training targets differ. This is a software/output comparison, not an accuracy comparison.
+For one fixed 2026 weather input, the earlier archived model produced 1.81% and the 100-row retrained model produced 36.91%. Their training targets and output scales differed. This historical software/output comparison is not an accuracy comparison.
 
 ## Scope and limitations
 
@@ -41,4 +52,4 @@ For one fixed 2026 weather input, the archived model produced 1.81% and the retr
 
 See the [client report](../reports/palawan_lasso_retraining/WeeWare_Palawan_LASSO_Retraining_Report.pdf) for a plain-language summary and figures.
 
-The recorded leave-one-year-out risk-class confusion matrix is available in [model validation artifacts](../reports/model_validation/README.md). It uses the deployed 33% and 66% cutoffs. No High-risk examples occur in the held-out sample, so High-class performance cannot be estimated; interpret accuracy with class support and the continuous MAE/RMSE.
+The historical leave-one-year-out risk-class confusion matrix is available in [model validation artifacts](../reports/model_validation/README.md). It used the earlier model's 33% and 66% cutoffs. No High-risk examples occur in the held-out sample, so High-class performance cannot be estimated; interpret accuracy with class support and the continuous MAE/RMSE.

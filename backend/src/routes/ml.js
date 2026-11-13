@@ -1,11 +1,11 @@
 const express = require('express');
 const multer = require('multer');
 const path = require('path');
-const PDFDocument = require('pdfkit');
 const Prediction = require('../models/Prediction');
 const env = require('../config/env');
 const { requireAuth, requireRoles } = require('../middleware/auth');
 const { trackedFetch } = require('../services/traffic');
+const createWekaPdf = require('../services/wekaPdf');
 
 const router = express.Router();
 const researcherAccess = [requireAuth, requireRoles('researcher', 'admin')];
@@ -146,54 +146,7 @@ router.post('/weka/export/xlsx', ...researcherAccess, async (req, res) => {
     return res.status(503).json({ success: false, message: 'Could not generate the Weka Excel report.' });
   }
 });
-router.post('/weka/export/pdf', ...researcherAccess, (req, res) => {
-  const result = req.body || {};
-  const risk = result.risk_evaluation;
-  if (!Array.isArray(result.predictions) || !risk || !Array.isArray(risk.labels) || !Array.isArray(risk.matrix)) {
-    return res.status(400).json({ success: false, message: 'A completed Weka evaluation is required.' });
-  }
-  try {
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', 'attachment; filename="weka-analysis-report.pdf"');
-    const doc = new PDFDocument({ size: 'A4', margin: 48, bufferPages: true });
-    doc.on('error', (error) => { console.error('[ml] Weka PDF generation failed:', error); if (!res.headersSent) res.status(500).end(); else res.destroy(error); });
-    doc.pipe(res);
-    const line = (label, value) => doc.fontSize(10).fillColor('#164f38').text(`${label}: `, { continued: true }).fillColor('#24352d').text(String(value ?? '—'));
-    doc.fontSize(20).fillColor('#145a3b').text('Weka evaluation report');
-    doc.moveDown(0.7);
-    line('Dataset', result.filename);
-    line('Algorithm', result.algorithm_label || result.algorithm);
-    line('Weka version', result.version);
-    line('Validation', `${result.validation || 'Random-fold cross-validation'} · ${result.folds || '—'} folds · ${result.rows || result.predictions.length} rows`);
-    line('Features', Array.isArray(result.features) ? result.features.join(', ') : '—');
-    doc.moveDown(0.6).fontSize(14).fillColor('#145a3b').text('Regression metrics');
-    const metrics = result.metrics || {};
-    line('MAE', metrics.mae);
-    line('RMSE', metrics.rmse);
-    line('Correlation', metrics.correlation);
-    doc.moveDown(0.6).fontSize(14).fillColor('#145a3b').text('Risk-band confusion matrix');
-    line('Accuracy', `${(Number(risk.accuracy || 0) * 100).toFixed(1)}%`);
-    line('Thresholds', `Low < ${risk.thresholds?.low ?? '—'}%; Medium < ${risk.thresholds?.high ?? '—'}%; High otherwise`);
-    const cell = 92;
-    doc.moveDown(0.4).fontSize(9).fillColor('#24352d').text(`Actual / Predicted      ${risk.labels.join('                 ')}`);
-    risk.labels.forEach((label, index) => doc.text(`${label.padEnd(20)}${(risk.matrix[index] || []).join('                         ')}`));
-    doc.moveDown(0.7).fontSize(14).fillColor('#145a3b').text('Per-class scores');
-    doc.fontSize(9).fillColor('#24352d').text('Risk band          Support          Precision          Recall          F1');
-    (risk.per_class || []).forEach((item) => doc.text(`${String(item.name).padEnd(19)}${String(item.support).padEnd(17)}${Number(item.precision).toFixed(3).padEnd(19)}${Number(item.recall).toFixed(3).padEnd(16)}${Number(item.f1).toFixed(3)}`));
-    doc.moveDown(0.7).fontSize(14).fillColor('#145a3b').text(`Cross-validation predictions (${result.predictions.length})`);
-    doc.fontSize(8).fillColor('#24352d').text('Row       Observed %       Predicted %       Abs. error       Actual risk       Predicted risk');
-    result.predictions.forEach((item) => {
-      if (doc.y > 750) doc.addPage();
-      doc.text(`${item.row}           ${Number(item.actual).toFixed(3)}             ${Number(item.predicted).toFixed(3)}                ${Number(item.absolute_error).toFixed(3)}              ${item.actual_risk}               ${item.predicted_risk}`);
-    });
-    doc.moveDown(0.8).fontSize(8).fillColor('#66776f').text(result.note || '');
-    doc.end();
-  } catch (error) {
-    console.error('[ml] Weka PDF export failed:', error);
-    if (!res.headersSent) return res.status(500).json({ success: false, message: 'Could not generate the Weka PDF report.' });
-    return res.end();
-  }
-});
+router.post('/weka/export/pdf', ...researcherAccess, createWekaPdf);
 router.post('/train/palawan', ...researcherAccess, async (req, res) => {
   try {
     const response = await trackedFetch(`${env.mlServiceUrl}/train/palawan`, {
