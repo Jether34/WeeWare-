@@ -16,7 +16,6 @@ export default function Layout() {
   const [notifications, setNotifications] = useState([]);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [notificationsLoading, setNotificationsLoading] = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const notificationWrapRef = useRef(null);
   const navigate = useNavigate();
   const visibleNav = [...nav.filter(([to]) => to !== '/app/settings'), ['/app/ai', 'AI assistant', '✦'], ...(user?.role === 'researcher' ? [['/app/system-iteration', 'System iteration', '⌁']] : []), ...(user?.role === 'admin' ? [['/app/admin', 'adminDashboard', '▦']] : []), ...(user?.role === 'da' ? [['/app/da', 'daDashboard', '▥']] : []), nav.find(([to]) => to === '/app/settings')];
@@ -69,8 +68,7 @@ export default function Layout() {
         <button className="quiet-button" onClick={async () => { try { await signOut(); } finally { navigate('/', { replace: true }); } }}>{t('signOut')}</button>
       </div>
     </header>
-    <div className="app-frame"><aside id="primary-mobile-navigation" className={`sidebar ${mobileMenuOpen ? 'open' : ''}`}>{visibleNav.map(([to, key, icon]) => <NavLink key={to} to={to} onClick={() => setMobileMenuOpen(false)} className={({ isActive }) => `side-link ${isActive ? 'active' : ''}`}><span className="side-icon">{icon}</span><span>{t(key, { defaultValue: key === 'messages' ? t('Messages') : key === 'adminDashboard' ? t('Admin dashboard') : key === 'daDashboard' ? t('DA dashboard') : key })}</span></NavLink>)}<div className="sidebar-foot">{t('Palawan Island')}<br />{t('Philippines')}</div></aside><main className="main-content"><Outlet /></main></div>
-    <button type="button" className={`mobile-nav-toggle ${mobileMenuOpen ? 'active' : ''}`} aria-expanded={mobileMenuOpen} aria-controls="primary-mobile-navigation" aria-label={`${t('Main navigation')}: ${mobileMenuOpen ? 'close menu' : 'open menu'}`} title={t('Main navigation')} onClick={() => setMobileMenuOpen((open) => !open)}><svg viewBox="0 0 24 24" aria-hidden="true">{mobileMenuOpen ? <path d="m6 6 12 12M18 6 6 18"/> : <path d="M4 6h16M4 12h16M4 18h16"/>}</svg><span>{mobileMenuOpen ? 'Close' : 'Menu'}</span></button>
+    <div className="app-frame"><aside className="sidebar">{visibleNav.map(([to, key, icon]) => <NavLink key={to} to={to} className={({ isActive }) => `side-link ${isActive ? 'active' : ''}`}><span className="side-icon">{icon}</span><span>{t(key, { defaultValue: key === 'messages' ? t('Messages') : key === 'adminDashboard' ? t('Admin dashboard') : key === 'daDashboard' ? t('DA dashboard') : key })}</span></NavLink>)}<div className="sidebar-foot">{t('Palawan Island')}<br />{t('Philippines')}</div></aside><main className="main-content"><Outlet /></main></div>
     <nav className="mobile-bottom-nav" aria-label={t('Main navigation')}>
       <NavLink to="/app/prediction" end aria-label={t('prediction')} title={t('prediction')} className={({ isActive }) => `mobile-bottom-link ${isActive ? 'active' : ''}`}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7h-6v7H4a1 1 0 0 1-1-1z" /></svg></NavLink>
       <NavLink to="/app/ai" aria-label={t('AI assistant')} title={t('AI assistant')} className={({ isActive }) => `mobile-bottom-link ${isActive ? 'active' : ''}`}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 1.6 5.4L19 10l-5.4 1.6L12 17l-1.6-5.4L5 10l5.4-1.6zM19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8zM5 2l.7 2.3L8 5l-2.3.7L5 8l-.7-2.3L2 5l2.3-.7z" /></svg></NavLink>

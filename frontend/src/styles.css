@@ -7,7 +7,7 @@
 @media(max-width:700px) and (orientation:landscape){.app-frame>.sidebar{max-height:calc(100dvh - 100px)}.mobile-nav-toggle{min-height:44px;bottom:calc(10px + env(safe-area-inset-bottom))}.main-content{padding-top:15px}}
 @media(min-width:701px){.app-frame>.sidebar{position:relative;inset:auto}.main-content{scrollbar-width:thin;scrollbar-color:#c6d6ca transparent}.mobile-nav-toggle{display:none}}
 @media(max-width:700px){
-  .mobile-nav-toggle{right:16px;bottom:calc(82px + env(safe-area-inset-bottom));z-index:1402}
+  .mobile-nav-toggle{display:none!important}
   .mobile-bottom-nav{position:fixed;left:50%;bottom:calc(13px + env(safe-area-inset-bottom));z-index:1300;display:grid;width:min(366px,calc(100vw - 32px));height:58px;grid-template-columns:repeat(5,minmax(0,1fr));align-items:center;padding:5px 10px;transform:translateX(-50%);border:1px solid #e8e9e8;border-radius:999px;background:rgba(250,250,250,.96);box-shadow:0 5px 18px rgba(28,35,30,.13);backdrop-filter:blur(12px)}
   .mobile-bottom-link{display:grid;width:42px;height:42px;place-self:center;place-items:center;padding:0;border:0;border-radius:50%;background:transparent;color:#59635d;-webkit-tap-highlight-color:transparent}
   .mobile-bottom-link svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
