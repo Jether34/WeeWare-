@@ -347,7 +347,7 @@ def predict(request: PredictRequest):
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
         raise HTTPException(status_code=503, detail=f"Prediction service unavailable: {exc}") from exc
-    return {**result, "start_date": start.isoformat(), "end_date": end.isoformat(), "location": climate_result["location"], "weather_sources": climate_result["sources"], "source_days": climate_result["source_days"]}
+    return {**result, "start_date": start.isoformat(), "end_date": end.isoformat(), "location": climate_result["location"], "weather_sources": climate_result["sources"], "source_days": climate_result["source_days"], "monthly": climate_result.get("monthly", [])}
 
 
 

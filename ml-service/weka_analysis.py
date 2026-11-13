@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import base64
+import csv
 import os
 import re
 import shutil
@@ -59,6 +60,19 @@ def _write_arff(values: pd.DataFrame, destination: Path) -> None:
             output.write(",".join(str(float(item)) for item in row) + "\n")
 
 
+def _write_classification_arff(values: pd.DataFrame, destination: Path, low_threshold: float, high_threshold: float) -> None:
+    features = ["year", *model.FEATURE_COLUMNS]
+    with destination.open("w", encoding="utf-8", newline="\n") as output:
+        output.write("@relation weeware_risk_band_classification\n\n")
+        for feature in features:
+            output.write(f"@attribute {feature} numeric\n")
+        output.write("@attribute infestation_risk {Low,Medium,High}\n\n@data\n")
+        for row in values[[*features, model.TARGET_COLUMN]].itertuples(index=False, name=None):
+            rate = float(row[-1])
+            label = "Low" if rate < low_threshold else "Medium" if rate < high_threshold else "High"
+            output.write(",".join(str(float(item)) for item in row[:-1]) + f",{label}\n")
+
+
 def _metric(output: str, label: str) -> float:
     section = output.split("=== Cross-validation ===", 1)[-1]
     match = re.search(rf"^{re.escape(label)}\s+([-+\d.eE]+)", section, re.MULTILINE)
@@ -83,6 +97,23 @@ def _predictions(output: str) -> list[dict]:
     return predictions
 
 
+def _classification_predictions(output: str) -> list[dict]:
+    section = output.split("=== Predictions under cross-validation ===", 1)
+    if len(section) != 2:
+        raise RuntimeError("Weka did not return cross-validation class predictions.")
+    predictions = []
+    reader = csv.reader(section[1].splitlines())
+    for row in reader:
+        if len(row) < 3 or not row[0].strip().isdigit():
+            continue
+        actual = row[1].strip().split(":", 1)[-1]
+        predicted = row[2].strip().split(":", 1)[-1]
+        if actual not in {"Low", "Medium", "High"} or predicted not in {"Low", "Medium", "High"}:
+            continue
+        predictions.append({"row": len(predictions) + 1, "actual": actual, "predicted": predicted})
+    return predictions
+
+
 def _risk_band(rate: float, low_threshold: float, high_threshold: float) -> str:
     bounded = min(100.0, max(0.0, rate))
     if bounded < low_threshold:
@@ -92,26 +123,61 @@ def _risk_band(rate: float, low_threshold: float, high_threshold: float) -> str:
     return "High"
 
 
-def _risk_evaluation(predictions: list[dict], low_threshold: float, high_threshold: float) -> dict:
+def _risk_evaluation(predictions: list[dict]) -> dict:
     classes = ["Low", "Medium", "High"]
     matrix = [[0 for _ in classes] for _ in classes]
     for item in predictions:
-        actual = _risk_band(item["actual"], low_threshold, high_threshold)
-        predicted = _risk_band(item["predicted"], low_threshold, high_threshold)
-        item["actual_risk"] = actual
-        item["predicted_risk"] = predicted
+        actual = item["actual"]
+        predicted = item["predicted"]
         matrix[classes.index(actual)][classes.index(predicted)] += 1
     total = sum(map(sum, matrix))
     correct = sum(matrix[index][index] for index in range(len(classes)))
     per_class = []
+    present_classes = []
     for index, name in enumerate(classes):
         support = sum(matrix[index])
         predicted_count = sum(row[index] for row in matrix)
         precision = matrix[index][index] / predicted_count if predicted_count else 0.0
         recall = matrix[index][index] / support if support else 0.0
         f1 = 2 * precision * recall / (precision + recall) if precision + recall else 0.0
-        per_class.append({"name": name, "support": support, "precision": precision, "recall": recall, "f1": f1})
-    return {"labels": classes, "matrix": matrix, "accuracy": correct / total if total else 0.0, "per_class": per_class, "thresholds": {"low": low_threshold, "high": high_threshold}}
+        per_class.append({"name": name, "support": support, "predicted_count": predicted_count, "precision": precision if support and predicted_count else None, "recall": recall if support else None, "f1": f1 if support else None})
+        if support:
+            present_classes.append((index, per_class[-1]))
+    macro_values = {"precision": [], "recall": [], "f1": []}
+    weighted_sums = {"precision": 0.0, "recall": 0.0, "f1": 0.0}
+    for index, item in present_classes:
+        tp = matrix[index][index]
+        predicted_count = item["predicted_count"]
+        precision_value = tp / predicted_count if predicted_count else 0.0
+        recall_value = tp / item["support"]
+        f1_value = 2 * precision_value * recall_value / (precision_value + recall_value) if precision_value + recall_value else 0.0
+        for key, value in (("precision", precision_value), ("recall", recall_value), ("f1", f1_value)):
+            macro_values[key].append(value)
+            weighted_sums[key] += value * item["support"]
+    macro = {key: sum(values) / len(values) if values else 0.0 for key, values in macro_values.items()}
+    weighted = {key: value / total if total else 0.0 for key, value in weighted_sums.items()}
+    majority_count = max((item["support"] for item in per_class), default=0)
+    return {
+        "labels": classes,
+        "matrix": matrix,
+        "total": total,
+        "correct": correct,
+        "accuracy": correct / total if total else 0.0,
+        "majority_class_accuracy": majority_count / total if total else 0.0,
+        "majority_class": max(per_class, key=lambda item: item["support"])["name"] if total else None,
+        "present_class_count": len(present_classes),
+        "per_class": per_class,
+        "macro_average": macro,
+        "weighted_average": weighted,
+        "macro_precision": macro["precision"],
+        "macro_recall": macro["recall"],
+        "macro_f1": macro["f1"],
+        "weighted_precision": weighted["precision"],
+        "weighted_recall": weighted["recall"],
+        "weighted_f1": weighted["f1"],
+        "thresholds": {"low": None, "high": None},
+        "method": "Weka Random Forest nominal-classifier cross-validation",
+    }
 
 
 def _render_3d_scatter(predictions: list[dict]) -> str:
@@ -196,7 +262,25 @@ def analyze_dataset(dataset_bytes: bytes, filename: str, algorithm: str, folds: 
         predictions = _predictions(prediction_process.stdout + "\n" + prediction_process.stderr)
         if len(predictions) != len(values):
             raise RuntimeError("Weka returned an unexpected number of cross-validation predictions.")
-        risk_evaluation = _risk_evaluation(predictions, low_threshold, high_threshold)
+        for item in predictions:
+            item["actual_risk"] = _risk_band(item["actual"], low_threshold, high_threshold)
+            item["predicted_risk"] = _risk_band(item["predicted"], low_threshold, high_threshold)
+
+        classification_path = Path(temp_dir) / "risk-band-data.arff"
+        _write_classification_arff(values, classification_path, low_threshold, high_threshold)
+        classification_command = [java, "-cp", classpath, "weka.classifiers.trees.RandomForest", "-t", str(classification_path), "-x", str(folds), "-s", "42", "-classifications", "weka.classifiers.evaluation.output.prediction.CSV"]
+        try:
+            classification_process = subprocess.run(classification_command, capture_output=True, text=True, timeout=180, check=False)
+        except subprocess.TimeoutExpired as exc:
+            raise RuntimeError("Weka risk-band classification timed out. Try a smaller dataset or fewer folds.") from exc
+        if classification_process.returncode != 0:
+            detail = (classification_process.stdout + "\n" + classification_process.stderr).strip().splitlines()
+            raise RuntimeError((detail[0] if detail else "Weka could not classify the infestation risk bands.")[:300])
+        classification_predictions = _classification_predictions(classification_process.stdout + "\n" + classification_process.stderr)
+        if len(classification_predictions) != len(values):
+            raise RuntimeError("Weka returned an unexpected number of risk-band class predictions.")
+        risk_evaluation = _risk_evaluation(classification_predictions)
+        risk_evaluation["thresholds"] = {"low": low_threshold, "high": high_threshold}
 
     feature_columns = ["year", *model.FEATURE_COLUMNS]
     data_summary = {
@@ -225,6 +309,7 @@ def analyze_dataset(dataset_bytes: bytes, filename: str, algorithm: str, folds: 
             "rmse": _metric(output, "Root mean squared error"),
         },
         "risk_evaluation": risk_evaluation,
+        "classification_predictions": classification_predictions,
         "predictions": predictions,
         "scatter_3d_png_base64": _render_3d_scatter(predictions),
         "validation": "Random-fold cross-validation",

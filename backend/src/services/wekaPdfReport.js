@@ -7,6 +7,7 @@ const DARK = '#1d392c';
 const MUTED = '#607268';
 
 function number(value, digits = 3) {
+  if (value == null) return 'N/A';
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed.toFixed(digits) : 'Not available';
 }
@@ -21,7 +22,7 @@ function drawTable(doc, { x, y, width, headers, rows, widths, rowHeight = 20, fo
       const cellWidth = columnWidths[index];
       doc.rect(left, top, cellWidth, rowHeight).fillAndStroke(header ? GREEN : '#ffffff', header ? GREEN : '#dce8df');
       doc.fillColor(header ? '#ffffff' : DARK).fontSize(header ? fontSize : fontSize - 0.2).font(header ? 'Helvetica-Bold' : 'Helvetica');
-      doc.text(String(value ?? 'Not available'), left + 4, top + 4, { width: Math.max(8, cellWidth - 8), height: rowHeight - 6, lineBreak: false, ellipsis: true });
+      doc.text(String(value ?? 'Not available'), left + 4, top + 4, { width: Math.max(8, cellWidth - 8), height: rowHeight - 6, lineBreak: !header, ellipsis: header });
       left += cellWidth;
     });
   };
@@ -52,9 +53,11 @@ function pageHeader(doc, title, subtitle) {
 function drawConfusionTables(doc, result) {
   const risk = result.risk_evaluation;
   const matrixRows = risk.labels.map((label, index) => [label, ...(risk.matrix[index] || [])]);
-  const classRows = (risk.per_class || []).map((item) => [item.name, item.support, number(item.precision), number(item.recall), number(item.f1)]);
+  const classRows = (risk.per_class || []).map((item) => [item.name, item.support, item.predicted_count ?? 0, number(item.precision), number(item.recall), number(item.f1)]);
   drawTable(doc, { x: MARGIN, y: 499, width: 290, headers: ['Actual / predicted', ...risk.labels], rows: matrixRows, widths: [1.8, 0.65, 0.65, 0.65], rowHeight: 18, fontSize: 7.2 });
-  drawTable(doc, { x: 344, y: 499, width: PAGE_WIDTH - MARGIN - 344, headers: ['Risk class', 'Support', 'Precision', 'Recall', 'F1'], rows: classRows, widths: [1.1, 0.65, 0.9, 0.75, 0.65], rowHeight: 18, fontSize: 7.2 });
+  classRows.push(['Macro average', 'â€”', 'â€”', number(risk.macro_precision), number(risk.macro_recall), number(risk.macro_f1)]);
+  classRows.push(['Weighted average', risk.total, 'â€”', number(risk.weighted_precision), number(risk.weighted_recall), number(risk.weighted_f1)]);
+  drawTable(doc, { x: 344, y: 499, width: PAGE_WIDTH - MARGIN - 344, headers: ['Risk class', 'Actual n', 'Pred n', 'Precision', 'Recall', 'F1'], rows: classRows, widths: [1.1, 0.55, 0.55, 0.78, 0.68, 0.55], rowHeight: 13, fontSize: 6.8 });
 }
 
 function createWekaPdfReport(req, res) {
@@ -83,7 +86,7 @@ function createWekaPdfReport(req, res) {
     const model = result.production_model || {};
     const metrics = result.metrics || {};
     const rows = result.predictions.length;
-    const accuracyText = `${(Number(risk.accuracy || 0) * 100).toFixed(1)}%`;
+    const accuracyText = risk.accuracy == null ? 'N/A' : `${(Number(risk.accuracy) * 100).toFixed(1)}%`;
     const features = result.features || [];
 
     // Page 1: results and a plain-language guide to every headline metric.
@@ -98,28 +101,29 @@ function createWekaPdfReport(req, res) {
     sectionTitle(doc, 'Final Weka results', 151);
     drawTable(doc, {
       x: MARGIN, y: 168, width: PAGE_WIDTH - MARGIN * 2,
-      headers: ['MAE (percentage points)', 'RMSE (percentage points)', 'Correlation', 'Risk-band accuracy'],
-      rows: [[number(metrics.mae), number(metrics.rmse), number(metrics.correlation), accuracyText]],
+      headers: ['Accuracy', 'Macro precision', 'Macro recall', 'Macro F1-score'],
+      rows: [[accuracyText, number(risk.macro_precision), number(risk.macro_recall), number(risk.macro_f1)]],
       widths: [1, 1, 1, 1], rowHeight: 25, fontSize: 8,
     });
 
     sectionTitle(doc, 'What these measures mean', 228);
     const metricDefinitions = [
-      ['MAE', 'Average absolute distance between predicted and observed infestation rates. Lower is better.'],
-      ['RMSE', 'Like MAE, but larger misses count more heavily. Lower is better. Both are percentage points, not percent accuracy.'],
-      ['Correlation', 'Whether predicted and observed values move together. Near +1 is strong same-direction movement; near 0 is weak; below 0 is opposite movement.'],
-      ['Risk-band accuracy', 'Share of held-out records assigned the same Low / Medium / High band. This is classification accuracy for bands, not LASSO regression accuracy.'],
+      ['Accuracy', 'Correct predictions / all held-out records. Compare with the majority-class baseline when the data are imbalanced.'],
+      ['Precision', 'TP / (TP + FP): among records predicted as a risk class, the share that truly belongs to it. Macro precision gives each represented class equal weight.'],
+      ['Recall', 'TP / (TP + FN): among records truly in a class, the share found by the classifier. Low recall means more missed records.'],
+      ['F1-score', '2 × (precision × recall) / (precision + recall). The harmonic mean balances both; scores range from 0 to 1.'],
     ];
-    drawTable(doc, { x: MARGIN, y: 245, width: PAGE_WIDTH - MARGIN * 2, headers: ['Term', 'Plain-language definition'], rows: metricDefinitions, widths: [1.1, 7], rowHeight: 23, fontSize: 7.7 });
+    drawTable(doc, { x: MARGIN, y: 245, width: PAGE_WIDTH - MARGIN * 2, headers: ['Term', 'Plain-language definition'], rows: metricDefinitions, widths: [1.1, 7], rowHeight: 27, fontSize: 7.7 });
 
-    sectionTitle(doc, 'Findings and interpretation', 373);
+    sectionTitle(doc, 'Findings and interpretation', 386);
     const correlation = Number(metrics.correlation);
     const correlationFinding = Number.isFinite(correlation)
       ? (correlation < -0.1 ? 'Predictions moved opposite to observed values in this small cross-validation sample.' : correlation < 0.1 ? 'Predictions showed little linear alignment with observed values in this sample.' : 'Predictions generally moved in the same direction as observed values in this sample.')
       : 'Correlation was not available for this run.';
-    const findings = `Weka evaluated ${rows} held-out predictions from ${result.filename || 'the selected dataset'} using ${result.folds || 'the selected number of'} folds. Its MAE was ${number(metrics.mae)} percentage points and RMSE was ${number(metrics.rmse)} percentage points. ${correlationFinding} Risk-band accuracy was ${accuracyText} (${Math.round(Number(risk.accuracy || 0) * rows)} of ${rows} records). With a small dataset, each record has a large effect on these results; random folds do not test transfer to a new location or a future year.`;
-    paragraph(doc, findings, MARGIN, 391, PAGE_WIDTH - MARGIN * 2, { fontSize: 8.5, lineGap: 3 });
-    paragraph(doc, 'The confusion matrix and the 3D chart on the next page show where the held-out estimates matched or missed. The active LASSO model is assessed separately later in this report; its MAE / RMSE must not be confused with Weka scores.', MARGIN, 458, PAGE_WIDTH - MARGIN * 2, { fontSize: 8.5, lineGap: 3 });
+    const baselineAccuracy = risk.majority_class_accuracy == null ? 'N/A' : `${(Number(risk.majority_class_accuracy) * 100).toFixed(1)}% (${risk.majority_class || 'largest class'})`;
+    const findings = `Weka Random Forest evaluated ${rows} held-out risk-class predictions from ${result.filename || 'the selected dataset'} using ${result.folds || 'the selected number of'} folds. Classification accuracy was ${accuracyText} (${risk.correct ?? Math.round(Number(risk.accuracy || 0) * rows)} of ${risk.total ?? rows} records), compared with a ${baselineAccuracy} majority-class baseline; macro precision, recall, and F1 were ${number(risk.macro_precision)}, ${number(risk.macro_recall)}, and ${number(risk.macro_f1)}. Separately, the selected ${result.algorithm_label || 'Weka regression model'} estimated continuous rates with MAE ${number(metrics.mae)} and RMSE ${number(metrics.rmse)} percentage points. ${correlationFinding} With a small dataset, each record has a large effect; random folds do not test transfer to a new location or future year.`;
+    paragraph(doc, findings, MARGIN, 404, PAGE_WIDTH - MARGIN * 2, { fontSize: 8.5, lineGap: 3 });
+    paragraph(doc, `The confusion matrix and 3D chart on the next page show where predictions matched or missed. The class is derived only from numeric infestation_rate cutoffs (${risk.thresholds?.low ?? 'â€”'} and ${risk.thresholds?.high ?? 'â€”'}). This dataset has no separate labels for fruit damage, pest presence, or other infestation characteristics. A class with no held-out examples is N/A. The active LASSO model is evaluated separately.`, MARGIN, 476, PAGE_WIDTH - MARGIN * 2, { fontSize: 8.5, lineGap: 3 });
 
     // Page 2: real 3D Matplotlib scatter, legend, matrix, and class scores.
     doc.addPage({ size: 'A4', layout: 'landscape', margin: MARGIN });

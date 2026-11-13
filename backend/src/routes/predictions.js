@@ -1,5 +1,5 @@
 const express = require('express');
-const PDFDocument = require('pdfkit');
+const createPredictionPdfReport = require('../services/predictionPdfReport');
 const Prediction = require('../models/Prediction');
 const SavedPrediction = require('../models/SavedPrediction');
 const env = require('../config/env');
@@ -63,6 +63,7 @@ router.post('/', async (req, res, next) => {
       location: result.location,
       weather: result.weather,
       weatherSources: result.weather_sources,
+      weatherMonthly: result.monthly || [],
       infestationRate: result.rate,
       rawRate: result.raw_rate,
       confidenceLevel: result.confidence,
@@ -71,7 +72,7 @@ router.post('/', async (req, res, next) => {
       severityScore: result.severity_score,
       actionKey: result.action_key,
       measurementKeys: result.measurement_keys,
-      modelInfo: { type: result.model_type, trainingPeriod: result.training_period, sourceDays: result.source_days, confidenceNote: result.confidence_note, outputMin: result.output_min, outputMax: result.output_max },
+      modelInfo: { type: result.model_type, trainingPeriod: result.training_period, sourceDays: result.source_days, confidenceNote: result.confidence_note, outputMin: result.output_min, outputMax: result.output_max, riskThresholds: result.risk_thresholds, samples: result.model_samples, alpha: result.model_alpha, trainingMae: result.training_mae, trainingRmse: result.training_rmse, validation: result.validation, retrainedAt: result.model_retrained_at },
     });
     res.status(201).json({ success: true, prediction });
   } catch (error) { next(error); }
@@ -96,32 +97,7 @@ router.get('/:id/report', async (req, res, next) => {
   try {
     const item = await Prediction.findOne({ _id: req.params.id, user: req.user.sub });
     if (!item) return res.status(404).json({ success: false, message: 'Prediction not found.' });
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="weeware-prediction-${item.year}.pdf"`);
-    const pdf = new PDFDocument({ margin: 48 });
-    pdf.pipe(res);
-    pdf.fontSize(22).fillColor('#155b3b').text('WeeWare Prediction Report');
-    pdf.moveDown().fontSize(11).fillColor('#222').text(`Location: ${item.location?.name || 'Puerto Princesa, Palawan'}`);
-    pdf.text(`Prediction window: ${item.startDate.toISOString().slice(0, 10)} to ${item.endDate.toISOString().slice(0, 10)}`);
-    pdf.text(`Generated: ${item.createdAt.toISOString().slice(0, 10)}`).moveDown();
-    pdf.fontSize(16).text(`Estimated infestation: ${item.infestationRate}% (${item.riskCategory} risk)`);
-    if (Number.isFinite(item.confidenceLevel)) pdf.fontSize(11).text(`Confidence: ${item.confidenceLevel}%`).moveDown();
-    const chartX = 48; const chartY = pdf.y + 12; const chartW = 500; const chartH = 22;
-    const rate = Math.max(0, Math.min(100, Number(item.infestationRate) || 0));
-    pdf.fontSize(10).fillColor('#33483a').text('Prediction result (%)', chartX, chartY - 2);
-    pdf.roundedRect(chartX, chartY + 16, chartW, chartH, 5).fill('#edf2ee');
-    pdf.roundedRect(chartX, chartY + 16, Math.max(4, chartW * rate / 100), chartH, 5).fill(item.riskCategory === 'High' ? '#bd5144' : item.riskCategory === 'Medium' ? '#d5a038' : '#3f9863');
-    for (const threshold of [33, 66]) {
-      const x = chartX + chartW * threshold / 100;
-      pdf.moveTo(x, chartY + 10).lineTo(x, chartY + 43).lineWidth(1).stroke('#596c60');
-      pdf.fontSize(8).fillColor('#596c60').text(`${threshold}%`, x - 12, chartY + 43, { width: 28, align: 'center' });
-    }
-    pdf.fontSize(8).fillColor('#596c60').text('0%', chartX, chartY + 43).text('100%', chartX + chartW - 25, chartY + 43);
-    pdf.y = chartY + 64;
-    pdf.text('Weather values used:');
-    Object.entries(item.weather || {}).forEach(([key, value]) => pdf.text(`${key}: ${value}`));
-    pdf.moveDown().text(`Suggested action: ${item.suggestedAction || ''}`);
-    pdf.end();
+    createPredictionPdfReport(item, res);
   } catch (error) { next(error); }
 });
 

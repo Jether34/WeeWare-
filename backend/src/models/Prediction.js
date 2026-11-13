@@ -10,6 +10,7 @@ const predictionSchema = new mongoose.Schema({
   location: { lat: Number, lng: Number, name: String },
   weather: { rainfall: Number, temperature: Number, humidity: Number, solar: Number, wind: Number },
   weatherSources: { type: mongoose.Schema.Types.Mixed, default: {} },
+  weatherMonthly: { type: [mongoose.Schema.Types.Mixed], default: [] },
   infestationRate: { type: Number, required: true, min: 0, max: MAX_INFESTATION_RATE_PERCENT },
   rawRate: Number,
   confidenceLevel: Number,
