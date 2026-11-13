@@ -5,7 +5,7 @@ const Prediction = require('../models/Prediction');
 const env = require('../config/env');
 const { requireAuth, requireRoles } = require('../middleware/auth');
 const { trackedFetch } = require('../services/traffic');
-const createWekaPdf = require('../services/wekaPdf');
+const createWekaPdfReport = require('../services/wekaPdfReport');
 
 const router = express.Router();
 const researcherAccess = [requireAuth, requireRoles('researcher', 'admin')];
@@ -165,7 +165,7 @@ router.post('/weka/export/xlsx', ...researcherAccess, async (req, res) => {
     return res.status(503).json({ success: false, message: 'Could not generate the Weka Excel report.' });
   }
 });
-router.post('/weka/export/pdf', ...researcherAccess, createWekaPdf);
+router.post('/weka/export/pdf', ...researcherAccess, createWekaPdfReport);
 router.post('/train/palawan', ...researcherAccess, async (req, res) => {
   try {
     const response = await trackedFetch(`${env.mlServiceUrl}/train/palawan`, {

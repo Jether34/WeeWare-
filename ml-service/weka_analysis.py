@@ -1,14 +1,22 @@
 """Run isolated Weka regression evaluations for researcher datasets."""
 from __future__ import annotations
 
+import base64
 import os
 import re
 import shutil
 import subprocess
 import tempfile
+from io import BytesIO
 from pathlib import Path
 
+import matplotlib
+matplotlib.use("Agg")
+import numpy as np
 import pandas as pd
+from matplotlib.backends.backend_agg import FigureCanvasAgg
+from matplotlib.figure import Figure
+from matplotlib.lines import Line2D
 
 import model
 
@@ -106,6 +114,45 @@ def _risk_evaluation(predictions: list[dict], low_threshold: float, high_thresho
     return {"labels": classes, "matrix": matrix, "accuracy": correct / total if total else 0.0, "per_class": per_class, "thresholds": {"low": low_threshold, "high": high_threshold}}
 
 
+def _render_3d_scatter(predictions: list[dict]) -> str:
+    palette = {"Low": "#268654", "Medium": "#df9b31", "High": "#ce5f52"}
+    actual = np.asarray([item["actual"] for item in predictions], dtype=float)
+    predicted = np.asarray([item["predicted"] for item in predictions], dtype=float)
+    absolute_error = np.asarray([item["absolute_error"] for item in predictions], dtype=float)
+    maximum_rate = max(1.0, float(np.max(np.concatenate([actual, predicted]))) * 1.12)
+    maximum_error = max(0.01, float(np.max(absolute_error)) * 1.1)
+    colors = [palette.get(item["actual_risk"], "#17643d") for item in predictions]
+
+    figure = Figure(figsize=(10.8, 5.7), dpi=150, facecolor="white")
+    FigureCanvasAgg(figure)
+    axis = figure.add_subplot(111, projection="3d")
+    axis.scatter(actual, predicted, absolute_error, c=colors, s=38, edgecolors="white", linewidths=0.5, alpha=0.92, depthshade=True)
+    ideal = np.linspace(0, maximum_rate, 60)
+    axis.plot(ideal, ideal, np.zeros_like(ideal), color="#bd8a45", linewidth=1.7, linestyle="--")
+    axis.set_xlim(0, maximum_rate)
+    axis.set_ylim(0, maximum_rate)
+    axis.set_zlim(0, maximum_error)
+    axis.set_xlabel("Observed infestation rate (%)", labelpad=10, fontsize=9)
+    axis.set_ylabel("Predicted infestation rate (%)", labelpad=10, fontsize=9)
+    axis.set_zlabel("Absolute error (percentage points)", labelpad=8, fontsize=9)
+    axis.set_title("Observed vs. predicted infestation rate", pad=16, fontsize=12, fontweight="bold", color="#174c35")
+    axis.tick_params(labelsize=7, pad=1)
+    axis.view_init(elev=24, azim=-56)
+    axis.grid(True, alpha=0.3)
+    legend_handles = [
+        Line2D([0], [0], marker="o", color="none", markerfacecolor=palette["Low"], markeredgecolor="white", markersize=7, label="Actual Low risk"),
+        Line2D([0], [0], marker="o", color="none", markerfacecolor=palette["Medium"], markeredgecolor="white", markersize=7, label="Actual Medium risk"),
+        Line2D([0], [0], marker="o", color="none", markerfacecolor=palette["High"], markeredgecolor="white", markersize=7, label="Actual High risk"),
+        Line2D([0], [0], color="#bd8a45", linestyle="--", linewidth=1.7, label="Perfect rate match (error = 0)"),
+    ]
+    axis.legend(handles=legend_handles, loc="upper left", bbox_to_anchor=(0.0, 0.98), fontsize=7, frameon=True, framealpha=0.95)
+    figure.tight_layout(pad=1.5)
+    output = BytesIO()
+    figure.savefig(output, format="png", dpi=150, bbox_inches="tight", facecolor="white")
+    figure.clear()
+    return base64.b64encode(output.getvalue()).decode("ascii")
+
+
 def analyze_dataset(dataset_bytes: bytes, filename: str, algorithm: str, folds: int, low_threshold: float = 33, high_threshold: float = 66) -> dict:
     runtime = runtime_status()
     if not runtime["available"]:
@@ -151,6 +198,17 @@ def analyze_dataset(dataset_bytes: bytes, filename: str, algorithm: str, folds: 
             raise RuntimeError("Weka returned an unexpected number of cross-validation predictions.")
         risk_evaluation = _risk_evaluation(predictions, low_threshold, high_threshold)
 
+    feature_columns = ["year", *model.FEATURE_COLUMNS]
+    data_summary = {
+        "year_start": int(values["year"].min()),
+        "year_end": int(values["year"].max()),
+        "location_count": int(values["location"].nunique()) if "location" in values else None,
+        "has_location_column": "location" in values,
+        "target_min": float(values[model.TARGET_COLUMN].min()),
+        "target_max": float(values[model.TARGET_COLUMN].max()),
+        "feature_ranges": {name: {"min": float(values[name].min()), "max": float(values[name].max())} for name in feature_columns},
+        "worksheet": values.attrs.get("source_sheet"),
+    }
     return {
         "engine": "Weka",
         "version": runtime["version"],
@@ -159,7 +217,8 @@ def analyze_dataset(dataset_bytes: bytes, filename: str, algorithm: str, folds: 
         "algorithm_label": label,
         "folds": folds,
         "rows": int(len(values)),
-        "features": ["year", *model.FEATURE_COLUMNS],
+        "features": feature_columns,
+        "data_summary": data_summary,
         "metrics": {
             "correlation": _metric(output, "Correlation coefficient"),
             "mae": _metric(output, "Mean absolute error"),
@@ -167,6 +226,7 @@ def analyze_dataset(dataset_bytes: bytes, filename: str, algorithm: str, folds: 
         },
         "risk_evaluation": risk_evaluation,
         "predictions": predictions,
+        "scatter_3d_png_base64": _render_3d_scatter(predictions),
         "validation": "Random-fold cross-validation",
         "note": "Risk bands are derived from the held-out infestation-rate predictions and configured thresholds. This research comparison does not replace the active LASSO model or its year/location holdout validation.",
     }

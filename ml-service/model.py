@@ -137,6 +137,7 @@ def _read_training_values(dataset_bytes: bytes, filename: str) -> pd.DataFrame:
     for sheet_name in workbook.sheet_names:
         try:
             values = _prepare_training_frame(pd.read_excel(workbook, sheet_name=sheet_name))
+            values.attrs["source_sheet"] = sheet_name
             return values
         except Exception as exc:
             sheet_errors.append(f"{sheet_name}: {exc}")

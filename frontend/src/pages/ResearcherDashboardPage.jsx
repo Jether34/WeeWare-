@@ -135,7 +135,26 @@ export default function ResearcherDashboardPage() {
     if (!wekaResult || busy) return;
     setBusy(true); setAction(`export-${format}`); setError('');
     try {
-      const { data } = await api.post(`/ml/weka/export/${format}`, wekaResult, { responseType: 'blob', timeout: 60_000 });
+      const production = dashboard?.model || {};
+      const productionExperiment = dashboard?.experiments?.find((experiment) => experiment.active);
+      const reportData = {
+        ...wekaResult,
+        production_model: {
+          source_filename: productionExperiment?.filename || 'not available',
+          experiment_id: production.experiment_id || productionExperiment?.id,
+          model_type: production.model_type,
+          training_period: production.training_period,
+          samples: production.samples,
+          alpha: production.alpha,
+          training_mae: production.training_mae,
+          training_rmse: production.training_rmse,
+          coefficients: production.coefficients,
+          validation: production.validation,
+          spatial_validation: production.spatial_validation,
+          output_config: production.config?.prediction,
+        },
+      };
+      const { data } = await api.post(`/ml/weka/export/${format}`, reportData, { responseType: 'blob', timeout: 60_000 });
       const url = URL.createObjectURL(data);
       const link = document.createElement('a'); link.href = url; link.download = `weka-analysis-report.${format}`; link.click();
       window.setTimeout(() => URL.revokeObjectURL(url), 1000);
