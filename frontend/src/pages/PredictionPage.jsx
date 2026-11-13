@@ -131,6 +131,6 @@ export default function PredictionPage() {
       <div className="prediction-navigation"><button className="button secondary" onClick={() => setStep(3)}>{t('Back to weather')}</button><button className="button" onClick={() => { setStep(1); setClimate(null); setPrediction(null); setStartDate(localToday()); }}>{t('Start a new prediction')}</button></div>
     </section>}
     <ConfirmDialog open={savedDialogOpen} title={t('Report saved')} confirmLabel={t('Okay')} onConfirm={() => setSavedDialogOpen(false)} onClose={() => setSavedDialogOpen(false)}>{t('Prediction saved to your reports.')}</ConfirmDialog>
-    <ConfirmDialog open={regionUnavailableOpen} title={t('Region unavailable')} confirmLabel={t('Okay')} cancelLabel="" onConfirm={() => setRegionUnavailableOpen(false)} onClose={() => setRegionUnavailableOpen(false)}>{t('This region is still locked because of no data')}</ConfirmDialog>
+    <ConfirmDialog open={regionUnavailableOpen} title={t('Region unavailable')} confirmLabel={t('Okay')} cancelLabel="" backdropClassName="region-alert-backdrop" onConfirm={() => setRegionUnavailableOpen(false)} onClose={() => setRegionUnavailableOpen(false)}>{t('This region is still locked because of no data')}</ConfirmDialog>
   </div>;
 }

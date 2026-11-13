@@ -149,3 +149,5 @@
 }
 .map-interaction-overlays{position:absolute;inset:0;z-index:1001;pointer-events:none}
 .map-interaction-overlays .map-search-controls,.map-interaction-overlays .map-compass,.map-interaction-overlays .map-live-location{pointer-events:auto}
+
+.dialog-backdrop.region-alert-backdrop{backdrop-filter:none;-webkit-backdrop-filter:none}
