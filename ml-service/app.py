@@ -143,8 +143,10 @@ async def analyze_with_weka(request: Request):
     dataset, filename, _ = await _dataset_bytes(request)
     algorithm = request.headers.get("x-weka-algorithm", "random_forest")
     folds = request.headers.get("x-weka-folds", "5")
+    low_threshold = request.headers.get("x-weka-low-threshold", "33")
+    high_threshold = request.headers.get("x-weka-high-threshold", "66")
     try:
-        return await run_in_threadpool(weka_analysis.analyze_dataset, dataset, filename, algorithm, folds)
+        return await run_in_threadpool(weka_analysis.analyze_dataset, dataset, filename, algorithm, folds, low_threshold, high_threshold)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except RuntimeError as exc:

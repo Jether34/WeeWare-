@@ -60,7 +60,54 @@ def _metric(output: str, label: str) -> float:
     return float(match.group(1))
 
 
-def analyze_dataset(dataset_bytes: bytes, filename: str, algorithm: str, folds: int) -> dict:
+def _predictions(output: str) -> list[dict]:
+    section = output.split("=== Predictions under cross-validation ===", 1)
+    if len(section) != 2:
+        raise RuntimeError("Weka did not return cross-validation predictions.")
+    predictions = []
+    numeric = r"([-+]?\d+(?:\.\d*)?(?:[eE][-+]?\d+)?)"
+    row_pattern = re.compile(rf"^\s*\d+\s*,\s*{numeric}\s*,\s*{numeric}\s*,\s*{numeric}\s*$")
+    for line in section[1].splitlines():
+        match = row_pattern.match(line)
+        if not match:
+            continue
+        actual, predicted, _error = (float(value) for value in match.groups())
+        predictions.append({"row": len(predictions) + 1, "actual": actual, "predicted": predicted, "absolute_error": abs(actual - predicted)})
+    return predictions
+
+
+def _risk_band(rate: float, low_threshold: float, high_threshold: float) -> str:
+    bounded = min(100.0, max(0.0, rate))
+    if bounded < low_threshold:
+        return "Low"
+    if bounded < high_threshold:
+        return "Medium"
+    return "High"
+
+
+def _risk_evaluation(predictions: list[dict], low_threshold: float, high_threshold: float) -> dict:
+    classes = ["Low", "Medium", "High"]
+    matrix = [[0 for _ in classes] for _ in classes]
+    for item in predictions:
+        actual = _risk_band(item["actual"], low_threshold, high_threshold)
+        predicted = _risk_band(item["predicted"], low_threshold, high_threshold)
+        item["actual_risk"] = actual
+        item["predicted_risk"] = predicted
+        matrix[classes.index(actual)][classes.index(predicted)] += 1
+    total = sum(map(sum, matrix))
+    correct = sum(matrix[index][index] for index in range(len(classes)))
+    per_class = []
+    for index, name in enumerate(classes):
+        support = sum(matrix[index])
+        predicted_count = sum(row[index] for row in matrix)
+        precision = matrix[index][index] / predicted_count if predicted_count else 0.0
+        recall = matrix[index][index] / support if support else 0.0
+        f1 = 2 * precision * recall / (precision + recall) if precision + recall else 0.0
+        per_class.append({"name": name, "support": support, "precision": precision, "recall": recall, "f1": f1})
+    return {"labels": classes, "matrix": matrix, "accuracy": correct / total if total else 0.0, "per_class": per_class, "thresholds": {"low": low_threshold, "high": high_threshold}}
+
+
+def analyze_dataset(dataset_bytes: bytes, filename: str, algorithm: str, folds: int, low_threshold: float = 33, high_threshold: float = 66) -> dict:
     runtime = runtime_status()
     if not runtime["available"]:
         raise RuntimeError("Weka is not installed for the model service. Run scripts/setup-weka.ps1, then restart the ML service.")
@@ -77,6 +124,13 @@ def analyze_dataset(dataset_bytes: bytes, filename: str, algorithm: str, folds: 
     values = model._prepare_training_frame(frame)
     if not 2 <= folds <= min(10, len(values)):
         raise ValueError(f"Choose between 2 and {min(10, len(values))} cross-validation folds.")
+    try:
+        low_threshold = float(low_threshold)
+        high_threshold = float(high_threshold)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("Risk thresholds must be valid numbers.") from exc
+    if not (0 <= low_threshold < high_threshold <= 100):
+        raise ValueError("Risk thresholds must be ordered between 0 and 100.")
 
     classifier, label = WEKA_CLASSIFIERS[algorithm]
     java = runtime["java"]
@@ -84,15 +138,20 @@ def analyze_dataset(dataset_bytes: bytes, filename: str, algorithm: str, folds: 
     with tempfile.TemporaryDirectory(prefix="weeware-weka-") as temp_dir:
         arff_path = Path(temp_dir) / "research-data.arff"
         _write_arff(values, arff_path)
-        command = [java, "-cp", classpath, classifier, "-t", str(arff_path), "-x", str(folds), "-s", "42", "-o"]
+        base_command = [java, "-cp", classpath, classifier, "-t", str(arff_path), "-x", str(folds), "-s", "42"]
         try:
-            process = subprocess.run(command, capture_output=True, text=True, timeout=180, check=False)
+            metrics_process = subprocess.run([*base_command, "-o"], capture_output=True, text=True, timeout=180, check=False)
+            prediction_process = subprocess.run([*base_command, "-classifications", "weka.classifiers.evaluation.output.prediction.CSV"], capture_output=True, text=True, timeout=180, check=False)
         except subprocess.TimeoutExpired as exc:
             raise RuntimeError("Weka analysis timed out. Try a smaller dataset or fewer folds.") from exc
-        output = process.stdout + "\n" + process.stderr
-        if process.returncode != 0:
-            detail = output.strip().splitlines()
+        output = metrics_process.stdout + "\n" + metrics_process.stderr
+        if metrics_process.returncode != 0 or prediction_process.returncode != 0:
+            detail = (output + "\n" + prediction_process.stderr).strip().splitlines()
             raise RuntimeError((detail[0] if detail else "Weka could not evaluate this dataset.")[:300])
+        predictions = _predictions(prediction_process.stdout + "\n" + prediction_process.stderr)
+        if len(predictions) != len(values):
+            raise RuntimeError("Weka returned an unexpected number of cross-validation predictions.")
+        risk_evaluation = _risk_evaluation(predictions, low_threshold, high_threshold)
 
     return {
         "engine": "Weka",
@@ -107,6 +166,8 @@ def analyze_dataset(dataset_bytes: bytes, filename: str, algorithm: str, folds: 
             "mae": _metric(output, "Mean absolute error"),
             "rmse": _metric(output, "Root mean squared error"),
         },
+        "risk_evaluation": risk_evaluation,
+        "predictions": predictions,
         "validation": "Random-fold cross-validation",
-        "note": "Research comparison only. This Weka result does not replace the active LASSO model or its year/location holdout validation.",
+        "note": "Risk bands are derived from the held-out infestation-rate predictions and configured thresholds. This research comparison does not replace the active LASSO model or its year/location holdout validation.",
     }

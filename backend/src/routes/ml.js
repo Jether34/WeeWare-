@@ -99,6 +99,8 @@ router.post('/weka/analyze', ...researcherAccess, datasetUpload.single('dataset'
         'X-Dataset-Name': encodeURIComponent(path.basename(req.file.originalname)),
         'X-Weka-Algorithm': String(req.body.algorithm || 'random_forest'),
         'X-Weka-Folds': String(req.body.folds || '5'),
+        'X-Weka-Low-Threshold': String(req.body.lowThreshold || '33'),
+        'X-Weka-High-Threshold': String(req.body.highThreshold || '66'),
       },
       body: req.file.buffer,
       signal: AbortSignal.timeout(240_000),

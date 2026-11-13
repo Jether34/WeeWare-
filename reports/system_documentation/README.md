@@ -112,7 +112,7 @@ The Express API is mounted under `/api`. Express exposes `/api/health`; a genera
 | `/api/moderation` | Submit content removal requests; admin queue/review/publication/removal operations. |
 | `/api/system` | Admin overview/users/roles/conversations/schema/config/traffic/health; DA/admin forecast overview. |
 
-The ML service endpoints include `GET /health`, `/model/info`, `/train/status`, `/train/experiments`, `/train/template`, `/weka/status`, `/climate/years`, `/climate/year/{year}`, `/climate/window`; `POST /train/preview`, `/train`, `/train/palawan`, `/weka/analyze`, `/train/experiments/{id}/activate`, `/predict`; `GET /train/experiments/{id}/dataset`; and `DELETE /train/experiments/{id}`. The Weka analyzer reports random-fold regression metrics for comparison only and cannot activate a production model. The service is intended to be internal behind Express in normal deployment. Do not expose its training operations directly to untrusted clients.
+The ML service endpoints include `GET /health`, `/model/info`, `/train/status`, `/train/experiments`, `/train/template`, `/weka/status`, `/climate/years`, `/climate/year/{year}`, `/climate/window`; `POST /train/preview`, `/train`, `/train/palawan`, `/weka/analyze`, `/train/experiments/{id}/activate`, `/predict`; `GET /train/experiments/{id}/dataset`; and `DELETE /train/experiments/{id}`. The Weka analyzer returns cross-validated regression metrics and held-out predictions, plus a risk-band confusion matrix derived using the researcher-selected thresholds. Results are for comparison and cannot activate a production model. The service is intended to be internal behind Express in normal deployment. Do not expose its training operations directly to untrusted clients.
 
 ## Services and persisted data
 

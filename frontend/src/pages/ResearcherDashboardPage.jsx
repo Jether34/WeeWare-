@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import api from '../api';
-import { useAuth } from '../auth';
 
 const defaultConfig = { alpha_mode: 'auto', alpha: 0.1, cv_folds: 5, max_iter: 100000, fit_intercept: true, features: ['rainfall', 'temperature', 'humidity', 'solar', 'wind'], prediction: { min: 0, max: 100, low_threshold: 33, high_threshold: 66 } };
 const asConfig = (config) => ({ ...defaultConfig, ...config, prediction: { ...defaultConfig.prediction, ...(config?.prediction || {}) } });
@@ -8,6 +7,46 @@ const dateLabel = (date) => date ? new Date(date).toLocaleString() : '—';
 
 function Metric({ label, value, detail }) {
   return <article className="research-metric"><span>{label}</span><strong>{value ?? '—'}</strong>{detail && <small>{detail}</small>}</article>;
+}
+
+function WekaEvaluationView({ result, onDownload }) {
+  if (!result) return null;
+  const risk = result.risk_evaluation;
+  const points = result.predictions || [];
+  const extent = Math.max(100, ...points.flatMap((point) => [point.actual, point.predicted]));
+  const x = (value) => 38 + (Number(value) / extent) * 260;
+  const y = (value) => 188 - (Number(value) / extent) * 158;
+  const metric = (value) => Number(value).toFixed(3);
+  return <div className="weka-evaluation" aria-live="polite">
+    <div className="validation-metrics weka-result-metrics">
+      <Metric label="Cross-validation MAE" value={metric(result.metrics.mae)} detail="percentage points; lower is better"/>
+      <Metric label="Cross-validation RMSE" value={metric(result.metrics.rmse)} detail="percentage points; lower is better"/>
+      <Metric label="Correlation" value={metric(result.metrics.correlation)} detail="observed vs predicted"/>
+      <Metric label="Risk-band accuracy" value={`${(risk.accuracy * 100).toFixed(1)}%`} detail={`${points.length} held-out predictions`}/>
+    </div>
+    <section className="weka-evaluation-section">
+      <div className="weka-evaluation-title"><div><h3>Observed vs predicted infestation rate</h3><p>Each dot is a held-out Weka prediction. The diagonal shows a perfect match.</p></div><button type="button" className="button secondary" onClick={onDownload}>Download predictions CSV</button></div>
+      <div className="validation-chart weka-scatter-chart">
+        <svg viewBox="0 0 320 220" role="img" aria-label="Weka observed versus predicted infestation rates scatter plot">
+          <line x1="38" y1="188" x2="298" y2="188"/><line x1="38" y1="188" x2="38" y2="30"/>
+          <line className="weka-ideal-line" x1="38" y1="188" x2={x(extent)} y2={y(extent)}/>
+          {points.map((point) => <circle key={point.row} className={`weka-point weka-point-${point.actual_risk.toLowerCase()}`} cx={x(point.actual)} cy={y(point.predicted)} r="3.4"><title>{`CV row ${point.row}: observed ${point.actual.toFixed(2)}%, predicted ${point.predicted.toFixed(2)}%`}</title></circle>)}
+          <text x="168" y="215" textAnchor="middle">Observed infestation rate (%)</text><text x="12" y="110" textAnchor="middle" transform="rotate(-90 12 110)">Predicted (%)</text>
+        </svg>
+        <div className="validation-legend"><span><i className="weka-point-key"/>Cross-validation rows</span><span><i className="weka-line-key"/>Perfect prediction</span></div>
+      </div>
+    </section>
+    <section className="weka-evaluation-section">
+      <div className="weka-evaluation-title"><div><h3>Risk-band confusion matrix</h3><p>Actual bands are rows; predicted bands are columns. Thresholds: Low &lt; {risk.thresholds.low}%, Medium &lt; {risk.thresholds.high}%, High otherwise.</p></div></div>
+      <div className="research-table-wrap"><table className="research-data-table weka-confusion-table"><thead><tr><th>Actual ↓ / Predicted →</th>{risk.labels.map((label) => <th key={label}>{label}</th>)}</tr></thead><tbody>{risk.matrix.map((row, index) => <tr key={risk.labels[index]}><th>{risk.labels[index]}</th>{row.map((count, column) => <td key={risk.labels[column]}>{count}</td>)}</tr>)}</tbody></table></div>
+      <div className="research-table-wrap"><table className="research-data-table weka-class-metrics"><thead><tr><th>Risk band</th><th>Support</th><th>Precision</th><th>Recall</th><th>F1</th></tr></thead><tbody>{risk.per_class.map((item) => <tr key={item.name}><th>{item.name}</th><td>{item.support}</td><td>{metric(item.precision)}</td><td>{metric(item.recall)}</td><td>{metric(item.f1)}</td></tr>)}</tbody></table></div>
+    </section>
+    <section className="weka-evaluation-section">
+      <div className="weka-evaluation-title"><div><h3>Cross-validation predictions</h3><p>Showing the first {Math.min(20, points.length)} of {points.length} held-out predictions, in Weka output order.</p></div></div>
+      <div className="research-table-wrap weka-prediction-scroll"><table className="research-data-table"><thead><tr><th>CV row</th><th>Observed %</th><th>Predicted %</th><th>Abs. error</th><th>Actual risk</th><th>Predicted risk</th></tr></thead><tbody>{points.slice(0, 20).map((point) => <tr key={point.row}><td>{point.row}</td><td>{point.actual.toFixed(3)}</td><td>{point.predicted.toFixed(3)}</td><td>{point.absolute_error.toFixed(3)}</td><td>{point.actual_risk}</td><td>{point.predicted_risk}</td></tr>)}</tbody></table></div>
+    </section>
+    <p className="research-footnote">{result.validation} · {result.rows} rows · features: {result.features.join(', ')}. {result.note}</p>
+  </div>;
 }
 
 function CoefficientView({ model }) {
@@ -35,7 +74,6 @@ function ValidationView({ validation, spatialValidation }) {
 }
 
 export default function ResearcherDashboardPage() {
-  const { user } = useAuth();
   const [dashboard, setDashboard] = useState(null);
   const [config, setConfig] = useState(defaultConfig);
   const [file, setFile] = useState(null);
@@ -44,6 +82,8 @@ export default function ResearcherDashboardPage() {
   const [wekaResult, setWekaResult] = useState(null);
   const [wekaAlgorithm, setWekaAlgorithm] = useState('random_forest');
   const [wekaFolds, setWekaFolds] = useState(5);
+  const [wekaLowThreshold, setWekaLowThreshold] = useState(33);
+  const [wekaHighThreshold, setWekaHighThreshold] = useState(66);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [action, setAction] = useState('');
@@ -59,6 +99,8 @@ export default function ResearcherDashboardPage() {
       setDashboard(data);
       if (!configInitialized.current && data.model?.config) {
         setConfig(asConfig(data.model.config));
+        setWekaLowThreshold(Number(data.model.config.prediction?.low_threshold ?? 33));
+        setWekaHighThreshold(Number(data.model.config.prediction?.high_threshold ?? 66));
         configInitialized.current = true;
       }
     } catch (err) { setError(err.message); }
@@ -70,11 +112,8 @@ export default function ResearcherDashboardPage() {
 
   const configPayload = useMemo(() => ({ ...config, alpha: Number(config.alpha), cv_folds: Number(config.cv_folds), max_iter: Number(config.max_iter), prediction: Object.fromEntries(Object.entries(config.prediction).map(([key, value]) => [key, Number(value)])) }), [config]);
   const oneClickTrainingConfig = useMemo(() => ({ ...configPayload, alpha_mode: 'fixed', alpha: 0.05 }), [configPayload]);
-  function updateConfig(key, value) { setConfig((current) => ({ ...current, [key]: value })); setPreview(null); }
-  function toggleFeature(feature) { setConfig((current) => ({ ...current, features: current.features.includes(feature) ? current.features.filter((item) => item !== feature) : [...current.features, feature] })); setPreview(null); }
-  function updatePredictionConfig(key, value) { setConfig((current) => ({ ...current, prediction: { ...current.prediction, [key]: value } })); setPreview(null); }
   function selectFile(nextFile) {
-    setPreview(null); setNotice('');
+    setPreview(null); setWekaResult(null); setNotice('');
     if (nextFile && !/\.(xlsx|csv)$/i.test(nextFile.name)) { setFile(null); setError('Use an .xlsx workbook or .csv file. Older .xls files are not supported.'); return; }
     if (nextFile && nextFile.size > 12 * 1024 * 1024) { setFile(null); setError('Training datasets must be 12 MB or smaller.'); return; }
     setFile(nextFile); setError('');
@@ -121,12 +160,25 @@ export default function ResearcherDashboardPage() {
     const form = uploadForm();
     form.set('algorithm', wekaAlgorithm);
     form.set('folds', String(wekaFolds));
+    form.set('lowThreshold', String(wekaLowThreshold));
+    form.set('highThreshold', String(wekaHighThreshold));
     try {
       const { data } = await api.post('/ml/weka/analyze', form, { timeout: 240_000 });
       setWekaResult(data);
       setNotice(`Weka ${data.algorithm_label} completed ${data.folds}-fold cross-validation on ${data.rows} rows.`);
     } catch (err) { setError(err.message); }
     finally { setBusy(false); setAction(''); }
+  }
+
+  function downloadWekaPredictions() {
+    if (!wekaResult?.predictions?.length) return;
+    const columns = ['cv_row', 'observed_rate', 'predicted_rate', 'absolute_error', 'actual_risk', 'predicted_risk'];
+    const escapeCell = (value) => `"${String(value).replaceAll('"', '""')}"`;
+    const rows = wekaResult.predictions.map((item) => [item.row, item.actual, item.predicted, item.absolute_error, item.actual_risk, item.predicted_risk]);
+    const blob = new Blob([[columns, ...rows].map((row) => row.map(escapeCell).join(',')).join('\n')], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a'); link.href = url; link.download = 'weka-cross-validation-predictions.csv'; link.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
   const model = dashboard?.model || {};
@@ -158,32 +210,19 @@ export default function ResearcherDashboardPage() {
           {preview && <div className="dataset-preview"><div className="dataset-preview-head"><div><strong>Validated dataset</strong><span>{preview.rows} location-year rows · {preview.locations || 1} locations · {preview.years} years ({preview.year_start}–{preview.year_end})</span></div><small>Dataset is sent to the model service when retraining starts.</small></div><div className="research-table-wrap"><table className="research-data-table"><thead><tr>{preview.columns.map((column) => <th key={column}>{column.replace('_', ' ')}</th>)}</tr></thead><tbody>{preview.preview.map((row, index) => <tr key={index}>{preview.columns.map((column) => <td key={column}>{column === 'location' ? row[column] : Number(row[column]).toLocaleString(undefined, { maximumFractionDigits: 3 })}</td>)}</tr>)}</tbody></table></div></div>}
         </section>
 
-        <section className="card research-panel weka-research-panel">
-          <div className="research-panel-head"><div><span className="section-kicker">EXPLORATORY MODELING</span><h2>Weka model analysis</h2><p>Compare a Weka regression algorithm on the selected dataset. This evaluation is separate from the live LASSO model and cannot deploy to production.</p></div><span className={`research-live-chip ${wekaRuntime?.available ? '' : 'weka-unavailable'}`}><i/>{wekaRuntime?.available ? `Weka ${wekaRuntime.version}` : 'Runtime unavailable'}</span></div>
+                <section className="card research-panel weka-research-panel">
+          <div className="research-panel-head"><div><span className="section-kicker">WEKA RESEARCH WORKSPACE</span><h2>Analyze and evaluate a dataset</h2><p>Run Weka regression models, compare held-out predictions, and inspect risk-band performance.</p></div><span className={`research-live-chip ${wekaRuntime?.available ? '' : 'weka-unavailable'}`}><i/>{wekaRuntime?.available ? `Weka ${wekaRuntime.version}` : 'Runtime unavailable'}</span></div>
           <div className="research-config-grid weka-config-grid">
             <label><span>Weka algorithm</span><select value={wekaAlgorithm} onChange={(event) => { setWekaAlgorithm(event.target.value); setWekaResult(null); }}><option value="random_forest">Random Forest</option><option value="m5p">M5P Model Tree</option><option value="linear_regression">Linear Regression</option></select></label>
-            <label><span>Random cross-validation folds</span><select value={wekaFolds} onChange={(event) => { setWekaFolds(Number(event.target.value)); setWekaResult(null); }}>{[2,3,4,5,6,7,8,9,10].map((fold) => <option key={fold} value={fold}>{fold} folds</option>)}</select></label>
-            <div className="research-method-summary"><strong>Dataset for analysis</strong><span>{file ? file.name : 'Select a CSV or XLSX dataset in the training section above.'}</span></div>
+            <label><span>Cross-validation folds</span><select value={wekaFolds} onChange={(event) => { setWekaFolds(Number(event.target.value)); setWekaResult(null); }}>{[2,3,4,5,6,7,8,9,10].map((fold) => <option key={fold} value={fold}>{fold} folds</option>)}</select></label>
+            <label><span>Low risk cutoff (%)</span><input type="number" min="0" max="99.99" step="any" value={wekaLowThreshold} onChange={(event) => { setWekaLowThreshold(Number(event.target.value)); setWekaResult(null); }}/></label>
+            <label><span>High risk cutoff (%)</span><input type="number" min="0.01" max="100" step="any" value={wekaHighThreshold} onChange={(event) => { setWekaHighThreshold(Number(event.target.value)); setWekaResult(null); }}/></label>
+            <div className="research-method-summary"><strong>Dataset to evaluate</strong><span>{file ? `${file.name} · ${preview?.rows ?? 'validate to view'} rows` : 'Choose a CSV or XLSX dataset in the training card above.'}</span></div>
           </div>
           {!wekaRuntime?.available && <p className="research-footnote">Install the pinned Weka runtime with <code>npm run setup:weka</code>, then restart the ML service.</p>}
-          <div className="research-action-row"><button type="button" className="button" disabled={!file || busy || !wekaRuntime?.available} onClick={analyzeWithWeka}>{action === 'weka' ? 'Running Weka analysis…' : 'Run Weka analysis'}</button></div>
-          {wekaResult && <><div className="validation-metrics weka-result-metrics"><Metric label="Cross-validation MAE" value={Number(wekaResult.metrics.mae).toFixed(3)} detail="percentage points; lower is better"/><Metric label="Cross-validation RMSE" value={Number(wekaResult.metrics.rmse).toFixed(3)} detail="percentage points; lower is better"/><Metric label="Correlation" value={Number(wekaResult.metrics.correlation).toFixed(3)} detail="observed vs predicted"/></div><p className="research-footnote">{wekaResult.validation} · {wekaResult.rows} rows · features: {wekaResult.features.join(', ')}. {wekaResult.note}</p></>}
-        </section>
-
-        <section className="card research-panel configuration-panel">
-          <div className="research-panel-head"><div><span className="section-kicker">TRAINING AND PREDICTION ENGINE</span><h2>Model configuration</h2><p>These settings are applied when the next retraining run succeeds and deploys.</p></div></div>
-          <div className="research-config-grid">
-            <fieldset className="research-feature-fieldset"><legend>Climate predictors</legend><div className="research-feature-options">{[['rainfall','Rainfall'],['temperature','Temperature'],['humidity','Humidity'],['solar','Solar radiation'],['wind','Wind speed']].map(([feature,label]) => <label key={feature}><input type="checkbox" checked={config.features.includes(feature)} disabled={config.features.length === 1 && config.features.includes(feature)} onChange={() => toggleFeature(feature)}/><span>{label}</span></label>)}</div></fieldset>
-            <div className="research-method-summary"><strong>One-click training method</strong><span>Standardized LASSO · alpha 0.05 · leave-one-year-out validation · automatic activation</span></div>
-            <label><span>Inner CV folds</span><input type="number" min="2" max="10" value={config.cv_folds} onChange={(event) => updateConfig('cv_folds', event.target.value)}/></label>
-            <label><span>Maximum iterations</span><input type="number" min="1000" max="1000000" step="1000" value={config.max_iter} onChange={(event) => updateConfig('max_iter', event.target.value)}/></label>
-            <label><span>Prediction output minimum</span><input type="number" min="0" max="100" step="any" value={config.prediction.min} onChange={(event) => updatePredictionConfig('min', event.target.value)}/></label>
-            <label><span>Prediction output maximum</span><input type="number" min="0.01" max="100" step="any" value={config.prediction.max} onChange={(event) => updatePredictionConfig('max', event.target.value)}/></label>
-            <label><span>Low risk threshold</span><input type="number" min="0" max="100" step="any" value={config.prediction.low_threshold} onChange={(event) => updatePredictionConfig('low_threshold', event.target.value)}/></label>
-            <label><span>High risk threshold</span><input type="number" min="0" max="100" step="any" value={config.prediction.high_threshold} onChange={(event) => updatePredictionConfig('high_threshold', event.target.value)}/></label>
-            <label className="research-checkbox"><input type="checkbox" checked={config.fit_intercept} onChange={(event) => updateConfig('fit_intercept', event.target.checked)}/><span>Fit an intercept</span></label>
-          </div>
-          <p className="research-footnote">Risk bands are Low below the low threshold, Medium between thresholds, and High at or above the high threshold. Output bounds expand to 100% when rates exceed 5%; set risk thresholds to match the supplied infestation-rate definition.</p>
+          <p className="research-footnote">Weka runs random-fold cross-validation. The risk-band confusion matrix is derived from each held-out predicted rate using the cutoffs above. This analysis is separate from the production LASSO model.</p>
+          <div className="research-action-row"><button type="button" className="button" disabled={!file || busy || !wekaRuntime?.available} onClick={analyzeWithWeka}>{action === 'weka' ? 'Evaluating with Weka…' : 'Run Weka evaluation'}</button></div>
+          <WekaEvaluationView result={wekaResult} onDownload={downloadWekaPredictions}/>
         </section>
       </div>
 
