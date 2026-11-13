@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import L from 'leaflet';
 import { useMap } from 'react-leaflet';
 import { isPalawanCoordinate } from './PalawanMangoAreas';
 
@@ -19,6 +20,7 @@ function Compass({ heading, active, error, onToggle, t }) {
 
 export function MapLocationSearch({ onSelect, t }) {
   const map = useMap();
+  const overlaysRef = useRef(null);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState([]);
   const [busy, setBusy] = useState(false);
@@ -54,6 +56,23 @@ export function MapLocationSearch({ onSelect, t }) {
     }, 320);
     return () => { window.clearTimeout(timer); controller.abort(); };
   }, [query, t]);
+
+  useEffect(() => {
+    const overlays = overlaysRef.current;
+    if (!overlays) return undefined;
+    L.DomEvent.disableClickPropagation(overlays);
+    L.DomEvent.disableScrollPropagation(overlays);
+    return () => {
+      L.DomEvent.off(overlays, 'click');
+      L.DomEvent.off(overlays, 'dblclick');
+      L.DomEvent.off(overlays, 'mousedown');
+      L.DomEvent.off(overlays, 'touchstart');
+      L.DomEvent.off(overlays, 'touchend');
+      L.DomEvent.off(overlays, 'contextmenu');
+      L.DomEvent.off(overlays, 'wheel');
+      L.DomEvent.off(overlays, 'mousewheel');
+    };
+  }, [map]);
 
   useEffect(() => () => {
     if (watchId.current !== null) navigator.geolocation?.clearWatch(watchId.current);
@@ -137,7 +156,7 @@ export function MapLocationSearch({ onSelect, t }) {
     if (results[0]) choose(results[0]);
   }
 
-  return <>
+  return <div ref={overlaysRef} className="map-interaction-overlays">
     <div className="map-search-controls">
       <form className="map-location-search" onSubmit={submitSearch} role="search">
         <svg className="map-search-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 5 5"/></svg>
@@ -157,5 +176,5 @@ export function MapLocationSearch({ onSelect, t }) {
     </div>
     <Compass heading={heading} active={compassActive} error={compassError} onToggle={toggleCompass} t={t}/>
     {tracking && <div className="map-live-location"><i/>{t('Live location')}{accuracy !== null && <small>±{Math.round(accuracy)} m</small>}</div>}
-  </>;
+  </div>;
 }

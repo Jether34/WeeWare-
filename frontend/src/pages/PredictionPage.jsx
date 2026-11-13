@@ -77,8 +77,7 @@ export default function PredictionPage() {
   function pick(point) {
     if (!isPalawanCoordinate(point)) {
       setError('');
-      if (window.matchMedia('(min-width: 701px)').matches) setRegionUnavailableOpen(true);
-      else setError(t('This region is still locked because of no data'));
+      setRegionUnavailableOpen(true);
       return;
     }
     setPin(point); setClimate(null); setPrediction(null); setError('');

@@ -147,3 +147,5 @@
   .settings-gender-dropdown{z-index:1800;width:100%}
   .settings-gender-dropdown .language-trigger{width:100%;justify-content:space-between}
 }
+.map-interaction-overlays{position:absolute;inset:0;z-index:1001;pointer-events:none}
+.map-interaction-overlays .map-search-controls,.map-interaction-overlays .map-compass,.map-interaction-overlays .map-live-location{pointer-events:auto}
