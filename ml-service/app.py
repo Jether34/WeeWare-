@@ -172,6 +172,61 @@ async def analyze_prepared_palawan_with_weka(request: Request):
         raise HTTPException(status_code=status, detail=str(exc)) from exc
 
 
+@app.post("/weka/export/xlsx")
+async def export_weka_analysis_xlsx(request: Request):
+    try:
+        result = await request.json()
+        if not isinstance(result, dict) or not isinstance(result.get("predictions"), list) or not isinstance(result.get("risk_evaluation"), dict):
+            raise ValueError("A completed Weka evaluation is required.")
+        metrics = result.get("metrics") or {}
+        risk = result["risk_evaluation"]
+        workbook = Workbook()
+        summary = workbook.active
+        summary.title = "Summary"
+        summary.append(["Weka evaluation report", ""])
+        summary.append(["Dataset", result.get("filename", "")])
+        summary.append(["Algorithm", result.get("algorithm_label", result.get("algorithm", ""))])
+        summary.append(["Engine version", f"{result.get('engine', 'Weka')} {result.get('version', '')}".strip()])
+        summary.append(["Cross-validation", result.get("validation", "Random-fold cross-validation")])
+        summary.append(["Folds", result.get("folds", "")])
+        summary.append(["Rows", result.get("rows", len(result["predictions"]))])
+        summary.append(["Features", ", ".join(result.get("features") or [])])
+        summary.append(["MAE", metrics.get("mae", "")])
+        summary.append(["RMSE", metrics.get("rmse", "")])
+        summary.append(["Correlation", metrics.get("correlation", "")])
+        summary.append(["Risk-band accuracy", risk.get("accuracy", "")])
+        summary.append(["Low cutoff (%)", (risk.get("thresholds") or {}).get("low", "")])
+        summary.append(["High cutoff (%)", (risk.get("thresholds") or {}).get("high", "")])
+        matrix_sheet = workbook.create_sheet("Confusion Matrix")
+        labels = risk.get("labels") or []
+        matrix_sheet.append(["Actual / Predicted", *labels])
+        for label, row in zip(labels, risk.get("matrix") or []):
+            matrix_sheet.append([label, *row])
+        matrix_sheet.append([])
+        matrix_sheet.append(["Risk band", "Support", "Precision", "Recall", "F1"])
+        for item in risk.get("per_class") or []:
+            matrix_sheet.append([item.get("name"), item.get("support"), item.get("precision"), item.get("recall"), item.get("f1")])
+        predictions = workbook.create_sheet("Predictions")
+        predictions.append(["CV row", "Observed rate (%)", "Predicted rate (%)", "Absolute error", "Actual risk", "Predicted risk"])
+        for item in result["predictions"]:
+            predictions.append([item.get("row"), item.get("actual"), item.get("predicted"), item.get("absolute_error"), item.get("actual_risk"), item.get("predicted_risk")])
+        for sheet in workbook.worksheets:
+            sheet.freeze_panes = "A2"
+            sheet.auto_filter.ref = sheet.dimensions
+            for cell in sheet[1]:
+                cell.font = Font(bold=True, color="FFFFFF")
+                cell.fill = PatternFill("solid", fgColor="17643D")
+            for column in sheet.columns:
+                letter = column[0].column_letter
+                sheet.column_dimensions[letter].width = min(42, max(14, max(len(str(cell.value or "")) for cell in column) + 2))
+        output = BytesIO()
+        workbook.save(output)
+        output.seek(0)
+        return StreamingResponse(output, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", headers={"Content-Disposition": "attachment; filename=weka-analysis-report.xlsx"})
+    except (ValueError, TypeError, KeyError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc) or "Weka report data is invalid.") from exc
+
+
 @app.post("/train")
 async def train_model(request: Request):
     dataset, filename, config = await _dataset_bytes(request)
