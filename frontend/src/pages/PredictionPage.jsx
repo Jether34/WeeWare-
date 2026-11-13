@@ -98,8 +98,8 @@ export default function PredictionPage() {
     <h1 className="page-title prediction-heading">{t('Annual infestation prediction')}</h1>
     <nav className="prediction-stepper" aria-label={t('Prediction steps')}>{['Location', 'Date window', 'Weather', 'Result'].map((label, index) => <div className={`prediction-stepper-item ${step === index + 1 ? 'active' : ''} ${step > index + 1 ? 'complete' : ''}`} key={label}><span>{step > index + 1 ? '✓' : index + 1}</span><small>{t(label)}</small></div>)}</nav>
 
-    {step === 1 && <section className="prediction-step-card card prediction-location-step"><div className="prediction-step-title"><span>1</span><div><h2>{t('Pin the forecast location')}</h2></div></div>
-      <div className="pin-readout"><strong>{t('Palawan location')}</strong><span>{location.lat.toFixed(5)}° N, {location.lng.toFixed(5)}° E</span></div>
+    {step === 1 && <section className="prediction-step-card card prediction-location-step"><div className="prediction-step-title"><span>1</span><div><h2>{t('Pin a location')}</h2></div></div>
+      <div className="pin-readout"><span>{location.lat.toFixed(5)}° N, {location.lng.toFixed(5)}° E</span></div>
       <div className="prediction-map"><MapContainer center={center} zoom={6} minZoom={5} maxZoom={20} scrollWheelZoom className="prediction-map-canvas"><MapLocationSearch onSelect={pick} t={t} /><PalawanMangoAreas t={t} /><FitPalawanExtent /><MapClick onPick={pick} /><Marker position={pin} icon={icon} draggable eventHandlers={{ dragend: (event) => { const point = event.target.getLatLng(); pick([point.lat, point.lng]); } }}><Tooltip permanent direction="top" offset={[0, -10]}>{t('Selected mango farm location')}</Tooltip><Popup>{t('Selected mango farm location')}<br />{location.lat.toFixed(5)}, {location.lng.toFixed(5)}</Popup></Marker></MapContainer></div>
       {error && <p className="error">{error}</p>}<div className="prediction-navigation"><button className="button" onClick={() => { setError(''); setStep(2); }}>{t('Next: choose dates')}</button></div>
     </section>}
