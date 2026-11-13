@@ -8,11 +8,14 @@ const User = require('../models/User');
 const DirectMessage = require('../models/DirectMessage');
 const GroupMessage = require('../models/GroupMessage');
 const GroupFile = require('../models/GroupFile');
+const ArchivedConversation = require('../models/ArchivedConversation');
+const { archiveExpiresAt } = require('../services/archiveCleanup');
+const { recordDeletedContent } = require('../services/deletedContent');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 const env = require('../config/env');
 
 const router = express.Router();
-const publicUserFields = 'fullName profilePicture role';
+const publicUserFields = 'fullName profilePicture role accountStatus';
 const GROUP_ROLES = ['admin', 'da', 'researcher'];
 const GROUP_CHUNK_BYTES = 8 * 1024 * 1024;
 const GROUP_FILE_MAX_BYTES = 1024 * 1024 * 1024;
@@ -29,7 +32,7 @@ const safeMessage = (message) => ({
 router.use(requireAuth);
 
 async function getGroupParticipants() {
-  const users = await User.find({ role: { $in: GROUP_ROLES } })
+  const users = await User.find({ role: { $in: GROUP_ROLES }, accountStatus: { $ne: 'deactivated' } })
     .select(`${publicUserFields} role createdAt`)
     .sort({ role: 1, fullName: 1 })
     .lean();
@@ -186,7 +189,7 @@ router.post('/group', requireGroupMember, async (req, res, next) => {
 
 router.get('/pinned', async (req, res, next) => {
   try {
-    const accounts = await User.find({ role: { $in: ['admin', 'da', 'researcher'] } }).select(`${publicUserFields} role`).sort({ role: 1, fullName: 1 });
+    const accounts = await User.find({ role: { $in: ['admin', 'da', 'researcher'] }, accountStatus: { $ne: 'deactivated' } }).select(`${publicUserFields} role`).sort({ role: 1, fullName: 1 });
     res.json({ success: true, accounts: {
       admin: accounts.find((user) => user.role === 'admin') || null,
       da: accounts.find((user) => user.role === 'da') || null,
@@ -207,33 +210,38 @@ router.get('/threads', async (req, res, next) => {
     const ids = threads.map((thread) => thread._id);
     const users = await User.find({ _id: { $in: ids } }).select(publicUserFields);
     const byId = new Map(users.map((user) => [String(user._id), user]));
-    const owner = await User.findById(req.user.sub).select('archivedConversations').lean();
-    const archived = new Set((owner?.archivedConversations || []).map(String));
-    res.json({ success: true, threads: threads.map((thread) => ({ user: byId.get(String(thread._id)), latest: safeMessage(thread.latest), archived: archived.has(String(thread._id)) })).filter((thread) => thread.user) });
+    const archives = await ArchivedConversation.find({ owner: req.user.sub }).select('peer archivedAt expiresAt').lean();
+    const archived = new Map(archives.map((record) => [String(record.peer), record]));
+    res.json({ success: true, threads: threads.map((thread) => { const record = archived.get(String(thread._id)); return { user: byId.get(String(thread._id)), latest: safeMessage(thread.latest), archived: Boolean(record), archivedAt: record?.archivedAt || null, expiresAt: record?.expiresAt || null }; }).filter((thread) => thread.user) });
   } catch (error) { next(error); }
 });
 
 router.post('/:userId/archive', async (req, res, next) => {
   try {
     if (!mongoose.isValidObjectId(req.params.userId) || req.params.userId === req.user.sub) return res.status(400).json({ success: false, message: 'Choose another valid WeeWare user.' });
-    const archive = req.body?.archived !== false;
-    await User.updateOne({ _id: req.user.sub }, archive ? { $addToSet: { archivedConversations: req.params.userId } } : { $pull: { archivedConversations: req.params.userId } });
-    res.json({ success: true, archived: archive });
+    const shouldArchive = req.body?.archived !== false;
+    if (shouldArchive) {
+      const archivedAt = new Date();
+      await ArchivedConversation.findOneAndUpdate({ owner: req.user.sub, peer: req.params.userId }, { $set: { archivedAt, expiresAt: archiveExpiresAt(archivedAt) } }, { upsert: true, new: true, setDefaultsOnInsert: true });
+    } else await ArchivedConversation.deleteOne({ owner: req.user.sub, peer: req.params.userId });
+    res.json({ success: true, archived: shouldArchive, ...(shouldArchive ? { expiresAt: archiveExpiresAt() } : {}) });
   } catch (error) { next(error); }
 });
 
 router.delete('/:userId', async (req, res, next) => {
   try {
     if (!mongoose.isValidObjectId(req.params.userId) || req.params.userId === req.user.sub) return res.status(400).json({ success: false, message: 'Choose another valid WeeWare user.' });
-    await DirectMessage.deleteMany({ $or: [{ sender: req.user.sub, recipient: req.params.userId }, { sender: req.params.userId, recipient: req.user.sub }] });
-    await User.updateOne({ _id: req.user.sub }, { $pull: { archivedConversations: req.params.userId } });
+    const messages = await DirectMessage.find({ $or: [{ sender: req.user.sub, recipient: req.params.userId }, { sender: req.params.userId, recipient: req.user.sub }] }).lean();
+    if (messages.length) await recordDeletedContent(messages.map((message) => ({ contentType: 'message', sourceId: String(message._id), deletedBy: req.user.sub, reason: 'conversation_deleted', snapshot: message })));
+    await DirectMessage.deleteMany({ _id: { $in: messages.map((message) => message._id) } });
+    await ArchivedConversation.deleteMany({ $or: [{ owner: req.user.sub, peer: req.params.userId }, { owner: req.params.userId, peer: req.user.sub }] });
     res.json({ success: true });
   } catch (error) { next(error); }
 });
 
 router.get('/recipients', requireAdmin, async (req, res, next) => {
   try {
-    const recipients = await User.find({ _id: { $ne: req.user.sub } }).select('fullName profilePicture role').sort({ fullName: 1 }).lean();
+    const recipients = await User.find({ _id: { $ne: req.user.sub }, accountStatus: { $ne: 'deactivated' } }).select('fullName profilePicture role').sort({ fullName: 1 }).lean();
     res.json({ success: true, recipients });
   } catch (error) { next(error); }
 });
@@ -242,7 +250,7 @@ router.post('/broadcast', requireAdmin, async (req, res, next) => {
   try {
     const content = typeof req.body?.content === 'string' ? req.body.content.trim() : '';
     if (!content || content.length > 4000) return res.status(400).json({ success: false, message: 'Enter a message of up to 4,000 characters.' });
-    const recipients = await User.find({ _id: { $ne: req.user.sub } }).select('_id');
+    const recipients = await User.find({ _id: { $ne: req.user.sub }, accountStatus: { $ne: 'deactivated' } }).select('_id');
     if (recipients.length > 1000) return res.status(413).json({ success: false, message: 'Broadcast is limited to 1,000 recipients at a time.' });
     const saved = await DirectMessage.insertMany(recipients.map((recipient) => ({ sender: req.user.sub, recipient: recipient._id, content })));
     const io = req.app.get('io');
@@ -272,8 +280,9 @@ router.get('/:userId', async (req, res, next) => {
 router.post('/:userId', async (req, res, next) => {
   try {
     if (!mongoose.isValidObjectId(req.params.userId) || req.params.userId === req.user.sub) return res.status(400).json({ success: false, message: 'Choose another valid WeeWare user.' });
-    const recipient = await User.findById(req.params.userId).select('_id');
+    const recipient = await User.findById(req.params.userId).select('_id accountStatus');
     if (!recipient) return res.status(404).json({ success: false, message: 'User not found.' });
+    if (recipient.accountStatus === 'deactivated') return res.status(403).json({ success: false, message: 'This account is deactivated and cannot receive messages.' });
     const body = req.body && typeof req.body === 'object' ? req.body : {};
     const content = typeof body.content === 'string' ? body.content.trim() : '';
     if (!content || content.length > 4000) return res.status(400).json({ success: false, message: 'Enter a message of up to 4,000 characters.' });

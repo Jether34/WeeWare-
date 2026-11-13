@@ -47,3 +47,26 @@
 .settings-card h2,.admin-panel h2,.researcher-dashboard-page .page-title{font-family:Manrope,sans-serif;letter-spacing:-.02em}
 .admin-page-heading>div>p,.researcher-dashboard-page .page-subtitle{max-width:560px;font-size:13px;line-height:1.45}
 @media(max-width:760px){.top-actions{gap:7px}.top-actions .language-select{min-width:48px;padding:7px 17px 7px 7px;font-size:10px}.map-search-controls{top:8px;left:48px;max-width:calc(100% - 56px);gap:5px}.map-location-search input{width:min(190px,39vw);font-size:12px}.map-search-controls>.button,.map-location-search .button{padding:8px;font-size:11px}.message-thread-actions{opacity:1}.message-thread-actions button{font-size:9px;padding:5px 4px}.save-report-toast{right:12px;bottom:calc(76px + env(safe-area-inset-bottom));left:12px;text-align:center}}
+
+/* Consistent authentication field sizing and app confirmation dialogs */
+.auth-form,.auth-content .auth-form{width:min(440px,100%);max-width:440px}
+.auth-form .field,.signup-form .field{width:100%;min-width:0}
+.auth-form .field>input,.auth-form .auth-password,.auth-form .auth-password input{width:100%;min-width:0;height:46px;box-sizing:border-box}
+.auth-form .auth-password{position:relative;display:flex;align-items:center}
+.auth-form .auth-password input{padding-right:48px}
+.signup-form .form-pair{display:block;width:100%}
+.signup-form .form-pair>.field{width:100%}
+.signup-form .consent-row{width:100%}
+.dialog-backdrop{position:fixed;z-index:5000;inset:0;display:grid;place-items:center;padding:20px;background:rgba(13,29,20,.58);backdrop-filter:blur(4px);animation:dialog-backdrop-in .14s ease-out}
+.confirm-dialog{width:min(100%,450px);padding:28px;border:1px solid #dce7de;border-radius:20px;background:#fff;box-shadow:0 24px 80px #06140c4a;animation:dialog-card-in .18s ease-out}
+.confirm-dialog-icon{display:grid;width:44px;height:44px;margin-bottom:14px;place-items:center;border-radius:14px;background:#e8f4eb;color:#17653e;font-size:22px;font-weight:800}
+.confirm-dialog-danger .confirm-dialog-icon{background:#fff0ed;color:#b7432e}
+.confirm-dialog h2{margin:0 0 10px;color:#173c2a;font:800 22px/1.25 Manrope,sans-serif;letter-spacing:-.02em}
+.confirm-dialog-copy{color:#64776b;font-size:14px;line-height:1.6}
+.confirm-dialog-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:24px}
+.confirm-dialog-actions .button{min-width:104px}
+.confirm-dialog-actions .button.danger{background:#b7432e;color:#fff}
+.confirm-dialog-actions .button.danger:hover{background:#963523}
+@keyframes dialog-backdrop-in{from{opacity:0}to{opacity:1}}
+@keyframes dialog-card-in{from{opacity:0;transform:translateY(8px) scale(.985)}to{opacity:1;transform:translateY(0) scale(1)}}
+@media(max-width:700px){.auth-form,.auth-content .auth-form{width:100%;max-width:440px}.auth-form .field>input,.auth-form .auth-password,.auth-form .auth-password input{height:46px}.confirm-dialog{padding:23px 20px;border-radius:17px}.confirm-dialog-actions{gap:8px}.confirm-dialog-actions .button{flex:1;min-width:0}}

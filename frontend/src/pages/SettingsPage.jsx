@@ -5,6 +5,7 @@ import api, { assetUrl } from '../api';
 import { useAuth } from '../auth';
 import DatePicker from '../components/DatePicker';
 import StyledDropdown from '../components/StyledDropdown';
+import ConfirmDialog from '../components/ConfirmDialog';
 
 const emptyProfile = { fullName: '', email: '', gender: '', birthday: '', address: '', phone: '', language: 'en', profilePicture: '', publicProfile: { email: false, gender: false, birthday: false, address: false, phone: false } };
 const languages = [['en', 'English'], ['tl', 'Tagalog'], ['ceb', 'Cebuano'], ['hil', 'Hiligaynon'], ['krj', 'Kinaray-a'], ['cyo', 'Kuyonon']];
@@ -18,6 +19,7 @@ export default function SettingsPage() {
   const [filePreview, setFilePreview] = useState('');
   const [passwords, setPasswords] = useState({ newPassword: '', confirmPassword: '' });
   const [notice, setNotice] = useState(''); const [error, setError] = useState(''); const [busy, setBusy] = useState(false); const [passwordBusy, setPasswordBusy] = useState(false);
+  const [accountDialog, setAccountDialog] = useState(null); const [accountBusy, setAccountBusy] = useState(false);
 
   async function signOutToLanding() {
     try { await signOut(); }
@@ -66,14 +68,16 @@ export default function SettingsPage() {
     finally { setPasswordBusy(false); }
   }
   async function deleteAccount() {
-    if (!window.confirm(t('Permanently delete your account, prediction history, saved reports, posts, and comments?'))) return;
-    try { await api.delete('/users/me'); await signOut(); navigate('/'); }
-    catch (err) { setError(err.message); }
+    setAccountBusy(true); setError('');
+    try { await api.delete('/users/me'); await signOut(); navigate('/', { replace: true }); }
+    catch (err) { setError(err.message); return false; }
+    finally { setAccountBusy(false); }
   }
   async function deactivateAccount() {
-    if (!window.confirm(t('Deactivate your account? You will be signed out and cannot sign in until support restores access.'))) return;
+    setAccountBusy(true); setError('');
     try { await api.post('/users/me/deactivate'); await signOut(); navigate('/', { replace: true }); }
-    catch (err) { setError(err.message); }
+    catch (err) { setError(err.message); return false; }
+    finally { setAccountBusy(false); }
   }
 
   return <div className="page settings-page">
@@ -104,8 +108,11 @@ export default function SettingsPage() {
         <button className="button secondary" disabled={passwordBusy}>{passwordBusy ? t('Updating…') : t('Update password')}</button>
       </form>
 
-      <section className="card settings-card delete-settings-card"><div><h2>{t('Account controls')}</h2><p>{t('Deactivate to block sign-in, or permanently delete your profile and WeeWare activity. Deletion cannot be undone.')}</p></div><div className="row"><button className="button secondary" onClick={deactivateAccount}>{t('Deactivate account')}</button><button className="button danger" onClick={deleteAccount}>{t('Delete my account')}</button></div></section>
+      <section className="card settings-card delete-settings-card"><div><h2>{t('Account controls')}</h2><p>{t('Deactivate to block sign-in, or permanently delete your profile and WeeWare activity. Deletion cannot be undone.')}</p></div><div className="row"><button className="button secondary" onClick={() => setAccountDialog('deactivate')}>{t('Deactivate account')}</button><button className="button danger" onClick={() => setAccountDialog('delete')}>{t('Delete my account')}</button></div></section>
     </div>
     <button type="button" className="button secondary mobile-settings-signout" onClick={signOutToLanding}>{t('signOut')}</button>
+    <ConfirmDialog open={Boolean(accountDialog)} title={accountDialog === 'delete' ? t('Delete your account?') : t('Deactivate your account?')} variant="danger" confirmLabel={accountDialog === 'delete' ? t('Delete account') : t('Deactivate account')} cancelLabel={t('Cancel')} onConfirm={accountDialog === 'delete' ? deleteAccount : deactivateAccount} onClose={() => setAccountDialog(null)} busy={accountBusy}>
+      {accountDialog === 'delete' ? <><p>{t('This permanently deletes your profile, predictions, saved reports, messages, posts, and comments.')}</p><p>{t('This action cannot be undone.')}</p></> : <><p>{t('Your account will be signed out and hidden from community posts. Other people will not be able to message you.')}</p><p>{t('To reactivate, sign in with your email and password, then enter the verification code sent to your email.')}</p></>}
+    </ConfirmDialog>
   </div>;
 }

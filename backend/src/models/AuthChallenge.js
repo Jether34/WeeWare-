@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 
 const authChallengeSchema = new mongoose.Schema({
   email: { type: String, required: true, lowercase: true, trim: true, index: true },
-  purpose: { type: String, enum: ['signup', 'password_reset'], required: true },
+  purpose: { type: String, enum: ['signup', 'password_reset', 'reactivation'], required: true },
   codeHash: { type: String, default: '' },
   tokenHash: { type: String, default: '' },
   payload: { type: mongoose.Schema.Types.Mixed, default: null },

@@ -5,10 +5,14 @@ const jwt = require('jsonwebtoken');
 const app = require('./app');
 const env = require('./config/env');
 const traffic = require('./services/traffic');
+const User = require('./models/User');
 
 async function start() {
   await mongoose.connect(env.mongoUri, { monitorCommands: true });
   console.log('[db] MongoDB connected');
+  const archiveCleanup = require('./services/archiveCleanup');
+  await archiveCleanup.migrateLegacyArchives();
+  archiveCleanup.scheduleArchiveCleanup();
   mongoose.connection.getClient().on('commandSucceeded', (event) => traffic.recordFlow({ source: 'WeeWare API', destination: 'MongoDB', type: 'database', label: event.commandName, durationMs: event.duration }));
   mongoose.connection.getClient().on('commandFailed', (event) => traffic.recordFlow({ source: 'WeeWare API', destination: 'MongoDB', type: 'database', label: event.commandName, status: 'error', durationMs: event.duration }));
   const server = http.createServer(app);
@@ -22,9 +26,15 @@ async function start() {
       const cookie = (socket.handshake.headers.cookie || '').split(';').map((item) => item.trim()).find((item) => item.startsWith('weeware_token='));
       const token = socket.handshake.auth?.token || cookie?.split('=').slice(1).join('=');
       const claims = token ? jwt.verify(decodeURIComponent(token), env.jwtSecret) : null;
-      socket.data.userId = claims?.sub || claims?.id || null;
-      socket.data.role = claims?.role === 'user' ? 'farmer' : claims?.role || null;
-      next();
+      const userId = claims?.sub || claims?.id;
+      if (!userId) return next();
+      User.findById(userId).select('role accountStatus').lean().then((user) => {
+        if (user && user.accountStatus !== 'deactivated') {
+          socket.data.userId = String(user._id);
+          socket.data.role = user.role === 'user' ? 'farmer' : user.role;
+        }
+        next();
+      }).catch(next);
     } catch { next(); }
   });
   io.on('connection', (socket) => {

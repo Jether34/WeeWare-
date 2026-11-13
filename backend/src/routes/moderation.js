@@ -4,6 +4,7 @@ const Post = require('../models/Post');
 const Comment = require('../models/Comment');
 const ModerationRequest = require('../models/ModerationRequest');
 const Notification = require('../models/Notification');
+const { recordDeletedContent } = require('../services/deletedContent');
 const { requireAuth, requireRoles } = require('../middleware/auth');
 
 const router = express.Router();
@@ -18,7 +19,11 @@ async function notify(req, recipient, actor, type, post, comment = null) {
 }
 
 async function removePost(req, post) {
-  const comments = await Comment.find({ post: post._id, deletedAt: null }).select('_id author');
+  const comments = await Comment.find({ post: post._id, deletedAt: null }).lean();
+  await recordDeletedContent([
+    { contentType: 'post', sourceId: String(post._id), deletedBy: req.user.sub, reason: 'post_removed', snapshot: post.toObject ? post.toObject() : post },
+    ...comments.map((comment) => ({ contentType: 'comment', sourceId: String(comment._id), deletedBy: req.user.sub, reason: 'post_removed', snapshot: comment })),
+  ]);
   post.deletedAt = new Date();
   await post.save();
   await Comment.updateMany({ post: post._id, deletedAt: null }, { $set: { deletedAt: new Date() } });
@@ -96,6 +101,7 @@ router.patch('/admin/deletions/:id', ...adminOnly, async (req, res, next) => {
     if (status === 'approved') {
       if (request.kind === 'post_deletion') await removePost(req, request.post);
       else if (request.comment && !request.comment.deletedAt) {
+        await recordDeletedContent([{ contentType: 'comment', sourceId: String(request.comment._id), deletedBy: req.user.sub, reason: 'comment_removed', snapshot: request.comment.toObject() }]);
         request.comment.deletedAt = new Date();
         request.comment.deletionStatus = 'approved';
         await request.comment.save();
@@ -124,6 +130,7 @@ router.delete('/admin/content/:kind/:id', ...adminOnly, async (req, res, next) =
     } else {
       const comment = await Comment.findOne({ _id: id, deletedAt: null });
       if (!comment) return res.status(404).json({ success: false, message: 'Comment not found.' });
+      await recordDeletedContent([{ contentType: 'comment', sourceId: String(comment._id), deletedBy: req.user.sub, reason: 'comment_removed', snapshot: comment.toObject() }]);
       comment.deletedAt = new Date();
       await comment.save();
       await ModerationRequest.updateMany({ comment: comment._id, status: 'pending' }, { $set: { status: 'approved', decidedBy: req.user.sub, decidedAt: new Date() } });

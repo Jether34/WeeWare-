@@ -6,6 +6,7 @@ import api from '../api';
 import DatePicker from '../components/DatePicker';
 import { defaultPalawanLocation, FitPalawanExtent, isPalawanCoordinate, PalawanMangoAreas, savedPalawanPin } from '../components/PalawanMangoAreas';
 import { MapLocationSearch } from '../components/MapLocationSearch';
+import ConfirmDialog from '../components/ConfirmDialog';
 
 const center = defaultPalawanLocation;
 const featureNames = { rainfall: 'Rainfall', temperature: 'Temperature', humidity: 'Relative humidity', solar: 'Solar radiation', wind: 'Wind speed' };
@@ -47,9 +48,8 @@ function PredictionScale({ prediction, climate, t, locale, feature, onFeatureCha
         <div className="prediction-scale-track"><span className="prediction-scale-fill" style={{ width: `${position}%` }} /><span className="prediction-scale-marker" style={{ left: `${position}%` }}><span>{formattedRate}%</span></span></div>
         <div className="prediction-scale-labels"><span>{minimum.toLocaleString(locale, { maximumFractionDigits: 2 })}%</span><span>{maximum.toLocaleString(locale, { maximumFractionDigits: 2 })}%</span></div>
       </div>
-      <p className="prediction-scale-explainer">{t('This is a model estimate based on weather and training records, not a count of infested trees on your farm.')}</p>
     </div>
-    {climate?.monthly?.length > 0 && <section className="prediction-weather-graph"><div><h3>{t('Weather patterns used in this prediction')}</h3><p>{t('These monthly weather readings are model inputs, not monthly infestation forecasts.')}</p></div><div className="prediction-weather-tabs" role="group" aria-label={t('Choose a weather variable to graph')}>{Object.entries(featureLabels).map(([key, label]) => <button type="button" key={key} className={feature === key ? 'active' : ''} aria-pressed={feature === key} onClick={() => onFeatureChange(key)}>{label}</button>)}</div><div className="prediction-weather-plot"><div className="section-head"><strong>{featureLabels[feature]}</strong><small>{units[feature]}</small></div><MonthlyChart climate={climate} feature={feature} featureNames={featureLabels} locale={locale} /></div></section>}
+    {climate?.monthly?.length > 0 && <section className="prediction-weather-graph"><div><h3>{t('Weather patterns used in this prediction')}</h3></div><div className="prediction-weather-tabs" role="group" aria-label={t('Choose a weather variable to graph')}>{Object.entries(featureLabels).map(([key, label]) => <button type="button" key={key} className={feature === key ? 'active' : ''} aria-pressed={feature === key} onClick={() => onFeatureChange(key)}>{label}</button>)}</div><div className="prediction-weather-plot"><div className="section-head"><strong>{featureLabels[feature]}</strong><small>{units[feature]}</small></div><MonthlyChart climate={climate} feature={feature} featureNames={featureLabels} locale={locale} /></div></section>}
   </section>;
 }
 export default function PredictionPage() {
@@ -66,6 +66,7 @@ export default function PredictionPage() {
   const [resultFeature, setResultFeature] = useState('rainfall');
   const [error, setError] = useState('');
   const [saved, setSaved] = useState(false);
+  const [savedDialogOpen, setSavedDialogOpen] = useState(false);
   const location = useMemo(() => ({ lat: Number(pin[0].toFixed(5)), lng: Number(pin[1].toFixed(5)), name: 'Palawan, Philippines' }), [pin]);
   const endDate = startDate ? addDays(startDate, 364) : '';
   const dates = useMemo(() => ({ startDate, endDate }), [startDate, endDate]);
@@ -91,16 +92,14 @@ export default function PredictionPage() {
     } catch (err) { setError(err.response?.data?.message || err.message); }
     finally { setBusy(false); }
   }
-  async function save() { try { await api.post(`/predictions/${prediction._id}/save`, { title: prediction.title }); setSaved(true); window.setTimeout(() => setSaved(false), 3500); } catch (err) { setError(err.response?.data?.message || err.message); } }
+  async function save() { try { await api.post(`/predictions/${prediction._id}/save`, { title: prediction.title }); setSaved(true); setSavedDialogOpen(true); } catch (err) { setError(err.response?.data?.message || err.message); } }
 
   return <div className="page prediction-page">
     <h1 className="page-title prediction-heading">{t('Annual infestation prediction')}</h1>
-    <p className="page-subtitle prediction-description">{t('Choose a location and any available start date. WeeWare extracts the following 365 days of climate data before forecasting with LASSO.')}</p>
     <nav className="prediction-stepper" aria-label={t('Prediction steps')}>{['Location', 'Date window', 'Weather', 'Result'].map((label, index) => <div className={`prediction-stepper-item ${step === index + 1 ? 'active' : ''} ${step > index + 1 ? 'complete' : ''}`} key={label}><span>{step > index + 1 ? '✓' : index + 1}</span><small>{t(label)}</small></div>)}</nav>
 
     {step === 1 && <section className="prediction-step-card card"><div className="prediction-step-title"><span>1</span><div><h2>{t('Pin the forecast location')}</h2></div></div>
       <div className="pin-readout"><strong>{t('Palawan location')}</strong><span>{location.lat.toFixed(5)}° N, {location.lng.toFixed(5)}° E</span></div>
-      <p className="muted">{t('Click anywhere on the Palawan map or drag the pin. These coordinates determine the weather data and prediction location.')}</p>
       <div className="prediction-map"><MapContainer center={center} zoom={6} minZoom={5} maxZoom={20} scrollWheelZoom className="prediction-map-canvas"><MapLocationSearch onSelect={pick} t={t} /><PalawanMangoAreas t={t} /><FitPalawanExtent /><MapClick onPick={pick} /><Marker position={pin} icon={icon} draggable eventHandlers={{ dragend: (event) => { const point = event.target.getLatLng(); pick([point.lat, point.lng]); } }}><Tooltip permanent direction="top" offset={[0, -10]}>{t('Selected mango farm location')}</Tooltip><Popup>{t('Selected mango farm location')}<br />{location.lat.toFixed(5)}, {location.lng.toFixed(5)}</Popup></Marker></MapContainer></div>
       {error && <p className="error">{error}</p>}<div className="prediction-navigation"><button className="button" onClick={() => { setError(''); setStep(2); }}>{t('Next: choose dates')}</button></div>
     </section>}
@@ -120,8 +119,9 @@ export default function PredictionPage() {
     {step === 4 && prediction && <section className="card prediction-result"><div className="prediction-step-title"><span>4</span><div><h2>{t('Prediction result and suggested action')}</h2><p className="muted">{dates.startDate} {t('through')} {dates.endDate} · {location.lat.toFixed(4)}, {location.lng.toFixed(4)}</p></div></div>
       <PredictionScale prediction={prediction} climate={climate} t={t} locale={locale} feature={resultFeature} onFeatureChange={setResultFeature} featureLabels={featureLabels} />
       <section className="prediction-findings recommendation-panel"><div className="section-head"><h3>{t('Suggested measurements')}</h3><span className="pill">{t('Based on the forecast risk')}</span></div><ul>{(prediction.measurementKeys || []).map((key) => <li key={key}>{t(key)}</li>)}</ul><p className="recommendation-caveat">{t('This forecast is a screening estimate. Inspect suspect fruit in the field and message the WeeWare DA account for local guidance.')}</p><div className="recommendation-sources"><strong>{t('Guidance sources')}</strong><a href="https://www.da.gov.ph/wp-content/uploads/2023/05/Philippine-Mango-Industry-Roadmap.pdf" target="_blank" rel="noreferrer">{t('Philippine Department of Agriculture mango industry roadmap')}</a><a href="https://www.business.qld.gov.au/industries/farms-fishing-forestry/agriculture/biosecurity/plants/priority-pest-disease/mango-pulp-weevil" target="_blank" rel="noreferrer">{t('Mango pulp weevil monitoring guidance')}</a><a className="button secondary recommendation-contact" href="/app/messages">{t('Message the DA account')}</a></div></section>
-      {error && <p className="error">{error}</p>}{saved && <div className="save-report-toast" role="status">{t('Prediction saved to your reports.')}</div>}<div className="row"><button className="button secondary" onClick={save} disabled={saved}>{saved ? t('Saved to reports') : t('Save report')}</button><a className="button secondary" href={`/api/predictions/${prediction._id}/report`}>{t('Download PDF')}</a><a className="button secondary" href="/app/history">{t('Prediction history')}</a></div>
+      {error && <p className="error">{error}</p>}<div className="row"><button className="button secondary" onClick={save} disabled={saved}>{saved ? t('Saved to reports') : t('Save report')}</button><a className="button secondary" href={`/api/predictions/${prediction._id}/report`}>{t('Download PDF')}</a><a className="button secondary" href="/app/history">{t('Prediction history')}</a></div>
       <div className="prediction-navigation"><button className="button secondary" onClick={() => setStep(3)}>{t('Back to weather')}</button><button className="button" onClick={() => { setStep(1); setClimate(null); setPrediction(null); setStartDate(localToday()); }}>{t('Start a new prediction')}</button></div>
     </section>}
+    <ConfirmDialog open={savedDialogOpen} title={t('Report saved')} confirmLabel={t('Okay')} onConfirm={() => setSavedDialogOpen(false)} onClose={() => setSavedDialogOpen(false)}>{t('Prediction saved to your reports.')}</ConfirmDialog>
   </div>;
 }

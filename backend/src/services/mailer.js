@@ -54,9 +54,14 @@ async function sendSignupCode(email, code) {
   await getTransporter().sendMail({ from: { name: env.smtpFromName, address: env.smtpFrom }, to: email, subject: 'Verify your WeeWare email address', text: `Your WeeWare verification code is ${code}. It expires in 10 minutes.`, html });
 }
 
+async function sendReactivationCode(email, code) {
+  const html = emailFrame({ title: 'Reactivate your WeeWare account', preheader: 'Your WeeWare reactivation code', body: `<p style="font-size:15px;line-height:1.7;color:#46574d">Enter this verification code to reactivate your WeeWare account:</p><p style="margin:24px 0;padding:16px;text-align:center;background:#f1f7f2;border:1px solid #deeadf;border-radius:10px;font-size:30px;font-weight:700;letter-spacing:8px;color:#155d41">${escapeHtml(code)}</p><p style="font-size:14px;color:#59685f">This code expires in 10 minutes. If you did not request reactivation, you can ignore this message.</p>`, footer: 'For your security, do not share this verification code with anyone.' });
+  await getTransporter().sendMail({ from: { name: env.smtpFromName, address: env.smtpFrom }, to: email, subject: 'Your WeeWare reactivation code', text: `Your WeeWare reactivation code is ${code}. It expires in 10 minutes.`, html });
+}
+
 async function sendPasswordReset(email, url) {
   const html = emailFrame({ title: 'Reset your password', preheader: 'A secure link to reset your WeeWare password', body: '<p style="font-size:15px;line-height:1.7;color:#46574d">We received a request to reset the password for your WeeWare account. Use the secure button below to choose a new password.</p><p style="font-size:14px;color:#59685f">This link expires in 30 minutes and can be used once. If you did not request a reset, no action is required.</p>', actionLabel: 'Reset password', actionUrl: url, footer: 'For your protection, this link is intended only for the account owner. Do not forward it.' });
   await getTransporter().sendMail({ from: { name: env.smtpFromName, address: env.smtpFrom }, to: email, subject: 'WeeWare password reset request', text: `Reset your WeeWare password using this link: ${url} . The link expires in 30 minutes. If you did not request this, ignore this email.`, html });
 }
 
-module.exports = { sendSignupCode, sendPasswordReset, verifyEmailTransport };
+module.exports = { sendSignupCode, sendReactivationCode, sendPasswordReset, verifyEmailTransport };

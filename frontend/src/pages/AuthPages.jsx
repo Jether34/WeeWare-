@@ -7,7 +7,7 @@ import LegalDialog from '../components/LegalDialog';
 function EyeIcon({ visible }) { return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.4-6 9.5-6 9.5 6 9.5 6-3.4 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="2.7"/>{!visible && <path d="m4 4 16 16"/>}</svg>; }
 function PasswordVisibilityButton({ visible, onClick, label }) { return <button className="password-visibility" type="button" onMouseDown={(event) => event.preventDefault()} onClick={onClick} aria-label={label} title={label}><EyeIcon visible={visible}/></button>; }
 
-function VerificationCodeFields({ value, onChange }) {
+function VerificationCodeFields({ value, onChange, idPrefix = 'signup' }) {
   const inputs = useRef([]);
   const digits = Array.from({ length: 6 }, (_, index) => value[index] && value[index] !== ' ' ? value[index] : '');
 
@@ -29,7 +29,7 @@ function VerificationCodeFields({ value, onChange }) {
     {digits.map((digit, index) => <input
       key={index}
       ref={(element) => { inputs.current[index] = element; }}
-      id={index === 0 ? 'signup-code' : undefined}
+      id={index === 0 ? `${idPrefix}-code` : undefined}
       aria-label={`Verification digit ${index + 1}`}
       type="text"
       inputMode="numeric"
@@ -72,28 +72,42 @@ function PolicyLinks({ open, prefix = 'By continuing, you agree to our' }) {
 
 export function LoginPage() {
   const { t } = useTranslation();
-  const { user, signIn } = useAuth();
+  const { user, signIn, reactivate } = useAuth();
   const [form, setForm] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [policy, setPolicy] = useState(null);
+  const [reactivationEmail, setReactivationEmail] = useState('');
+  const [reactivationCode, setReactivationCode] = useState('');
   const navigate = useNavigate();
   if (user) return <Navigate to="/app/prediction" replace/>;
   async function submit(event) {
     event.preventDefault(); setBusy(true); setError('');
-    try { await signIn(form); navigate('/app/prediction', { replace: true }); }
+    try { const result = await signIn(form); if (result?.reactivationRequired) { setReactivationEmail(result.email); setReactivationCode(''); return; } navigate('/app/prediction', { replace: true }); }
+    catch (e) { setError(e.message); }
+    finally { setBusy(false); }
+  }
+  async function verifyReactivation(event) {
+    event.preventDefault(); setBusy(true); setError('');
+    try { await reactivate({ email: reactivationEmail, code: reactivationCode.replace(/\s/g, '') }); navigate('/app/prediction', { replace: true }); }
+    catch (e) { setError(e.message); }
+    finally { setBusy(false); }
+  }
+  async function resendReactivationCode() {
+    setBusy(true); setError('');
+    try { await signIn(form); }
     catch (e) { setError(e.message); }
     finally { setBusy(false); }
   }
   return <AuthFrame policy={policy} onClosePolicy={() => setPolicy(null)}><div className="auth-content">
     <BrandLink/><div className="auth-heading"><span className="section-kicker">{t('WELCOME BACK')}</span><h2>{t('Sign in to WeeWare')}</h2><p>{t('Predict mango pulp weevil infestation across Palawan.')}</p></div>
     {error && <p className="error auth-error" role="alert">{error}</p>}
-    <form className="auth-form" onSubmit={submit}>
+    {reactivationEmail ? <><p className="auth-policy-copy">Your account is deactivated. To reactivate, enter the verification code sent to <strong>{reactivationEmail}</strong>.</p>{error && <p className="error auth-error" role="alert">{error}</p>}<form className="auth-form" onSubmit={verifyReactivation}><div className="field"><label htmlFor="reactivation-code">{t('verificationCode')}</label><VerificationCodeFields idPrefix="reactivation" value={reactivationCode} onChange={setReactivationCode}/></div><button className="button auth-submit" disabled={busy || reactivationCode.replace(/\s/g, '').length !== 6}>{busy ? t('verifying') : 'Reactivate account'}</button><button className="quiet-button" type="button" disabled={busy} onClick={resendReactivationCode}>{t('resendCode')}</button></form></> : <form className="auth-form" onSubmit={submit}>
       <div className="field"><label htmlFor="login-email">{t('Email')}</label><input id="login-email" type="email" required autoComplete="email" placeholder="you@example.com" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })}/></div>
       <div className="field"><label htmlFor="login-password">{t('Password')}</label><div className="auth-password"><input id="login-password" type={showPassword ? 'text' : 'password'} required autoComplete="current-password" placeholder={t('Enter your password')} value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })}/><PasswordVisibilityButton visible={showPassword} onClick={() => setShowPassword((value) => !value)} label={showPassword ? t('Hide password') : t('Show password')}/></div></div>
       <button className="button auth-submit" disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</button>
-    </form>
+    </form>}
     <div className="auth-switch"><Link to="/forgot-password">Forgot your password?</Link></div>
     <PolicyLinks open={setPolicy}/><div className="auth-switch">{t('New to WeeWare?')} <Link to="/signup">{t('Create an account')}</Link></div>
   </div></AuthFrame>;

@@ -6,7 +6,7 @@ const User = require('../models/User');
 const AuthChallenge = require('../models/AuthChallenge');
 const env = require('../config/env');
 const { requireAuth } = require('../middleware/auth');
-const { sendSignupCode, sendPasswordReset, verifyEmailTransport } = require('../services/mailer');
+const { sendSignupCode, sendReactivationCode, sendPasswordReset, verifyEmailTransport } = require('../services/mailer');
 
 const router = express.Router();
 const emailPattern = /^\S+@\S+\.\S+$/;
@@ -160,7 +160,40 @@ router.post('/login', async (req, res, next) => {
   try {
     const user = await User.findOne({ email: String(req.body.email || '').toLowerCase() }).select('+passwordHash');
     if (!user || !(await bcrypt.compare(String(req.body.password || ''), user.passwordHash))) return res.status(401).json({ success: false, message: 'Email or password is incorrect.' });
-    if (user.accountStatus === 'deactivated') return res.status(403).json({ success: false, message: 'This account is deactivated. Contact support to restore access.' });
+    if (user.accountStatus === 'deactivated') {
+      const email = user.email;
+      const previous = await AuthChallenge.findOne({ email, purpose: 'reactivation' });
+      if (previous && Date.now() - previous.lastSentAt.getTime() < 30000) return res.status(202).json({ success: true, reactivationRequired: true, email });
+      const code = String(crypto.randomInt(0, 1000000)).padStart(6, '0');
+      const challenge = await AuthChallenge.findOneAndUpdate({ email, purpose: 'reactivation' }, {
+        email, purpose: 'reactivation', codeHash: await bcrypt.hash(code, 10), tokenHash: '', payload: null, attempts: 0, lastSentAt: new Date(), expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+      }, { upsert: true, new: true, setDefaultsOnInsert: true });
+      try { await sendReactivationCode(email, code); }
+      catch (error) { await challenge.deleteOne(); return res.status(503).json({ success: false, message: 'Reactivation email could not be sent. Please try again later.' }); }
+      return res.status(202).json({ success: true, reactivationRequired: true, email });
+    }
+    setSession(res, user);
+    res.json({ success: true, user: safeUser(user) });
+  } catch (error) { next(error); }
+});
+
+router.post('/reactivation/verify', async (req, res, next) => {
+  try {
+    const email = String(req.body.email || '').trim().toLowerCase();
+    const code = String(req.body.code || '').trim();
+    if (!emailPattern.test(email) || !/^\d{6}$/.test(code)) return res.status(400).json({ success: false, message: 'Enter the six-digit code sent to your email.' });
+    const challenge = await AuthChallenge.findOne({ email, purpose: 'reactivation', expiresAt: { $gt: new Date() } });
+    if (!challenge) return res.status(400).json({ success: false, message: 'This code expired or is no longer valid. Sign in again to request another.' });
+    if (challenge.attempts >= 5) { await challenge.deleteOne(); return res.status(429).json({ success: false, message: 'Too many incorrect codes. Sign in again to request a new one.' }); }
+    if (!(await bcrypt.compare(code, challenge.codeHash))) {
+      challenge.attempts += 1; await challenge.save();
+      return res.status(400).json({ success: false, message: 'The verification code is incorrect.' });
+    }
+    const user = await User.findOne({ email }).select('+passwordHash');
+    if (!user || user.accountStatus !== 'deactivated') { await challenge.deleteOne(); return res.status(400).json({ success: false, message: 'This account is not awaiting reactivation.' }); }
+    user.accountStatus = 'approved';
+    await user.save();
+    await challenge.deleteOne();
     setSession(res, user);
     res.json({ success: true, user: safeUser(user) });
   } catch (error) { next(error); }

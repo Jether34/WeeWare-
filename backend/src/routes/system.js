@@ -5,6 +5,7 @@ const bcrypt = require('bcryptjs');
 const User = require('../models/User');
 const DirectMessage = require('../models/DirectMessage');
 const Notification = require('../models/Notification');
+const { recordDeletedContent } = require('../services/deletedContent');
 const SavedPrediction = require('../models/SavedPrediction');
 const Prediction = require('../models/Prediction');
 const Post = require('../models/Post');
@@ -88,8 +89,17 @@ router.delete('/admin/users/:id', ...adminOnly, async (req, res, next) => {
     const user = await User.findById(req.params.id).select('_id role');
     if (!user) return res.status(404).json({ success: false, message: 'User not found.' });
     if (user.role === 'admin' && await User.countDocuments({ role: 'admin' }) <= 1) return res.status(400).json({ success: false, message: 'Promote another administrator before deleting the last administrator account.' });
-    const authoredPosts = await Post.find({ author: user._id }).select('_id').lean();
+    const [authoredPosts, directMessages] = await Promise.all([
+      Post.find({ author: user._id }).lean(),
+      DirectMessage.find({ $or: [{ sender: user._id }, { recipient: user._id }] }).lean(),
+    ]);
     const postIds = authoredPosts.map((post) => post._id);
+    const affectedComments = await Comment.find({ $or: [{ author: user._id }, { post: { $in: postIds } }] }).lean();
+    await recordDeletedContent([
+      ...directMessages.map((message) => ({ contentType: 'message', sourceId: String(message._id), deletedBy: req.user.sub, reason: 'admin_account_deleted', snapshot: message })),
+      ...authoredPosts.map((post) => ({ contentType: 'post', sourceId: String(post._id), deletedBy: req.user.sub, reason: 'admin_account_deleted', snapshot: post })),
+      ...affectedComments.map((comment) => ({ contentType: 'comment', sourceId: String(comment._id), deletedBy: req.user.sub, reason: 'admin_account_deleted', snapshot: comment })),
+    ]);
     await Promise.all([
       DirectMessage.deleteMany({ $or: [{ sender: user._id }, { recipient: user._id }] }),
       Notification.deleteMany({ $or: [{ recipient: user._id }, { actor: user._id }] }),
@@ -141,6 +151,8 @@ router.get('/admin/schema', ...adminOnly, (_req, res) => res.json({ success: tru
   { name: 'comments', model: 'Comment', fields: ['author', 'post', 'parent', 'content', 'deletionStatus'], relations: ['author → users', 'post → posts', 'parent → comments'] },
   { name: 'moderationrequests', model: 'ModerationRequest', fields: ['kind', 'post', 'comment', 'requester', 'status', 'decidedBy', 'decidedAt'], relations: ['post → posts', 'comment → comments', 'requester → users', 'decidedBy → users'] },
   { name: 'directmessages', model: 'DirectMessage', fields: ['sender', 'recipient', 'content', 'createdAt'], relations: ['sender → users', 'recipient → users'] },
+  { name: 'archivedconversations', model: 'ArchivedConversation', fields: ['owner', 'peer', 'archivedAt', 'expiresAt'], relations: ['owner to users', 'peer to users'] },
+  { name: 'deletedcontent', model: 'DeletedContent', fields: ['contentType', 'sourceId', 'deletedBy', 'reason', 'snapshot', 'deletedAt'], relations: ['deletedBy to users'] },
   { name: 'notifications', model: 'Notification', fields: ['recipient', 'actor', 'type', 'post', 'comment', 'isRead'], relations: ['recipient → users', 'actor → users'] },
 ] }));
 

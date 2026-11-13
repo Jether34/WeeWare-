@@ -43,7 +43,8 @@ export default function UserProfilePage() {
       <img className="public-profile-photo" src={assetUrl(profile.profilePicture) || '/assets/weeware.png'} alt={`${profile.fullName} profile`} loading="eager" fetchPriority="high" onError={(event) => { event.currentTarget.onerror = null; event.currentTarget.src = '/assets/weeware.png'; }} />
       <h1>{profile.fullName}</h1>
       <span className="public-profile-role">{t(profile.role)}</span>
-      {profileId && profileId !== currentUserId && <Link className="button public-profile-message" to={`/app/messages?user=${encodeURIComponent(profileId)}`}>{t('Message')}</Link>}
+      {profile.accountStatus === 'deactivated' && <span className="pill">{t('Deactivated account')}</span>}
+      {profileId && profileId !== currentUserId && profile.accountStatus !== 'deactivated' && <Link className="button public-profile-message" to={`/app/messages?user=${encodeURIComponent(profileId)}`}>{t('Message')}</Link>}
     </header>
     <section className="public-profile-information">
       <article className="card public-profile-section"><h2>{t('Personal information')}</h2>
@@ -53,6 +54,6 @@ export default function UserProfilePage() {
         {isPublic(profile.publicProfile?.address) && profile.address ? <p>{profile.address}</p> : <p className="muted">{t('No address has been shared.')}</p>}
       </article>
     </section>
-    <section className="public-profile-posts"><div className="section-head"><h2>{t('Posts')}</h2></div><ForumPage profileId={profile._id} compact /></section>
+    <section className="public-profile-posts"><div className="section-head"><h2>{t('Posts')}</h2></div>{profile.accountStatus === 'deactivated' ? <p className="card muted">{t('Posts are unavailable for deactivated accounts.')}</p> : <ForumPage profileId={profile._id} compact />}</section>
   </main>;
 }

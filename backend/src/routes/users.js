@@ -8,6 +8,8 @@ const mongoose = require('mongoose');
 const fs = require('fs');
 const path = require('path');
 const env = require('../config/env');
+const ArchivedConversation = require('../models/ArchivedConversation');
+const { recordDeletedContent } = require('../services/deletedContent');
 const { requireAuth } = require('../middleware/auth');
 const upload = require('../middleware/upload');
 
@@ -24,7 +26,7 @@ router.get('/search', requireAuth, async (req, res, next) => {
     const q = String(req.query.q || '').trim().slice(0, 80);
     if (!q) return res.json({ success: true, users: [] });
     const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const users = await User.find({ _id: { $ne: req.user.sub }, fullName: { $regex: escaped, $options: 'i' } })
+    const users = await User.find({ _id: { $ne: req.user.sub }, accountStatus: { $ne: 'deactivated' }, fullName: { $regex: escaped, $options: 'i' } })
       .select('fullName profilePicture')
       .limit(12);
     res.json({ success: true, users });
@@ -87,22 +89,32 @@ router.delete('/me', requireAuth, async (req, res, next) => {
     const Notification = require('../models/Notification');
     const GroupMessage = require('../models/GroupMessage');
     const GroupFile = require('../models/GroupFile');
-    const [ownGroupMessages, ownGroupFiles] = await Promise.all([
-      GroupMessage.find({ sender: req.user.sub }).select('attachment').lean(),
+    const [ownGroupMessages, ownGroupFiles, ownDirectMessages, ownPosts] = await Promise.all([
+      GroupMessage.find({ sender: req.user.sub }).lean(),
       GroupFile.find({ owner: req.user.sub }).select('storageName').lean(),
+      DirectMessage.find({ $or: [{ sender: req.user.sub }, { recipient: req.user.sub }] }).lean(),
+      Post.find({ author: req.user.sub }).lean(),
     ]);
+    const ownPostIds = ownPosts.map((post) => post._id);
+    const ownComments = await Comment.find({ $or: [{ author: req.user.sub }, { post: { $in: ownPostIds } }] }).lean();
     const groupFileIds = [...new Set([...ownGroupMessages.map((message) => String(message.attachment || '')).filter(Boolean), ...ownGroupFiles.map((file) => String(file._id))])];
     const messageFiles = await GroupFile.find({ _id: { $in: groupFileIds } }).select('storageName').lean();
+    await recordDeletedContent([
+      ...ownDirectMessages.map((message) => ({ contentType: 'message', sourceId: String(message._id), deletedBy: req.user.sub, reason: 'account_deleted', snapshot: message })),
+      ...ownGroupMessages.map((message) => ({ contentType: 'message', sourceId: String(message._id), deletedBy: req.user.sub, reason: 'account_deleted', snapshot: message })),
+      ...ownPosts.map((post) => ({ contentType: 'post', sourceId: String(post._id), deletedBy: req.user.sub, reason: 'account_deleted', snapshot: post })),
+      ...ownComments.map((comment) => ({ contentType: 'comment', sourceId: String(comment._id), deletedBy: req.user.sub, reason: 'account_deleted', snapshot: comment })),
+    ]);
     await Promise.all([
       Prediction.deleteMany({ user: req.user.sub }),
       SavedPrediction.deleteMany({ user: req.user.sub }),
       Post.deleteMany({ author: req.user.sub }),
-      Comment.deleteMany({ author: req.user.sub }),
+      Comment.deleteMany({ $or: [{ author: req.user.sub }, { post: { $in: ownPostIds } }] }),
       Notification.deleteMany({ $or: [{ recipient: req.user.sub }, { actor: req.user.sub }] }),
       DirectMessage.deleteMany({ $or: [{ sender: req.user.sub }, { recipient: req.user.sub }] }),
       Post.updateMany({ likes: req.user.sub }, { $pull: { likes: req.user.sub } }),
       Comment.updateMany({ likes: req.user.sub }, { $pull: { likes: req.user.sub } }),
-      User.updateMany({ archivedConversations: req.user.sub }, { $pull: { archivedConversations: req.user.sub } }),
+      ArchivedConversation.deleteMany({ $or: [{ owner: req.user.sub }, { peer: req.user.sub }] }),
       GroupMessage.deleteMany({ sender: req.user.sub }),
       GroupFile.deleteMany({ _id: { $in: groupFileIds } }),
     ]);
@@ -116,7 +128,7 @@ router.delete('/me', requireAuth, async (req, res, next) => {
 router.get('/:id', async (req, res, next) => {
   try {
     if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ success: false, message: 'Choose a valid user profile.' });
-    const user = await User.findById(req.params.id).select('fullName email profilePicture role createdAt gender birthday address phone publicProfile');
+    const user = await User.findById(req.params.id).select('fullName email profilePicture role createdAt gender birthday address phone publicProfile accountStatus');
     if (!user) return res.status(404).json({ success: false, message: 'User not found.' });
     const preferences = user.publicProfile || {};
     const isPublic = (value) => value === true || value === 'true' || value === 1;
@@ -125,6 +137,7 @@ router.get('/:id', async (req, res, next) => {
       fullName: user.fullName,
       profilePicture: user.profilePicture,
       role: user.role,
+      accountStatus: user.accountStatus,
       createdAt: user.createdAt,
       publicProfile: {
         email: isPublic(preferences.email),

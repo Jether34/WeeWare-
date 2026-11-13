@@ -8,13 +8,17 @@ const ModerationRequest = require('../models/ModerationRequest');
 const { optionalAuth, requireAuth } = require('../middleware/auth');
 const router = express.Router();
 
-const postFields = 'fullName profilePicture role';
+const postFields = 'fullName profilePicture role accountStatus';
 function io(req, event, payload) { req.app.get('io')?.emit(event, payload); }
 async function notify(req, recipient, actor, type, post, comment) {
   if (!recipient || String(recipient) === String(actor)) return;
   const notification = await Notification.create({ recipient, actor, type, post, comment });
   const hydrated = await notification.populate('actor', postFields);
   req.app.get('io')?.to(`user:${recipient}`).emit('notification:new', hydrated);
+}
+async function findVisiblePost(id) {
+  const post = await Post.findOne({ _id: id, deletedAt: null, $or: [{ publishStatus: 'approved' }, { publishStatus: { $exists: false } }] }).populate('author', 'accountStatus');
+  return post?.author?.accountStatus === 'deactivated' ? null : post;
 }
 
 router.get('/search', optionalAuth, async (req, res, next) => {
@@ -26,7 +30,8 @@ router.get('/search', optionalAuth, async (req, res, next) => {
     const expression = new RegExp(q.slice(0, 80).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
     const peopleFilter = { fullName: expression };
     if (req.user?.sub) peopleFilter._id = { $ne: req.user.sub };
-    const postFilter = { deletedAt: null, $or: [{ publishStatus: 'approved' }, { publishStatus: { $exists: false } }], content: expression };
+    const unavailableAuthors = await User.find({ accountStatus: 'deactivated' }).distinct('_id');
+    const postFilter = { deletedAt: null, author: { $nin: unavailableAuthors }, $or: [{ publishStatus: 'approved' }, { publishStatus: { $exists: false } }], content: expression };
     const [users, posts] = await Promise.all([
       User.find(peopleFilter).select(postFields).sort({ fullName: 1, _id: 1 }).skip(page * limit).limit(limit + 1),
       Post.find(postFilter).populate('author', postFields).sort({ createdAt: -1, _id: -1 }).skip(page * limit).limit(limit + 1),
@@ -53,9 +58,12 @@ router.get('/', optionalAuth, async (req, res, next) => {
     const offset = Math.max(0, Number(req.query.offset || 0));
     if (req.query.userId && !mongoose.isValidObjectId(req.query.userId)) return res.status(400).json({ success: false, message: 'Choose a valid user profile.' });
     const filter = { deletedAt: null, $or: [{ publishStatus: 'approved' }, { publishStatus: { $exists: false } }] };
+    const unavailableAuthors = await User.find({ accountStatus: 'deactivated' }).distinct('_id');
+    filter.author = { $nin: unavailableAuthors };
     if (req.query.q) filter.content = { $regex: String(req.query.q).slice(0, 80), $options: 'i' };
     let posts;
     if (req.query.userId) {
+      if (!(await User.exists({ _id: req.query.userId, accountStatus: { $ne: 'deactivated' } }))) return res.json({ success: true, posts: [] });
       // Use find() here so Mongoose casts the author ID and the profile feed
       // can include the signed-in author's own pending submissions.
       filter.author = req.query.userId;
@@ -89,7 +97,7 @@ router.post('/', requireAuth, async (req, res, next) => {
 
 router.get('/:id/comments', optionalAuth, async (req, res, next) => {
   try {
-    const post = await Post.findOne({ _id: req.params.id, deletedAt: null, $or: [{ publishStatus: 'approved' }, { publishStatus: { $exists: false } }] }).select('_id');
+    const post = await findVisiblePost(req.params.id);
     if (!post) return res.status(404).json({ success: false, message: 'Post not found.' });
     const comments = await Comment.find({ post: req.params.id }).populate('author', postFields).sort({ createdAt: 1 });
     const nodes = new Map(comments.map((comment) => [String(comment._id), { ...comment.toObject(), content: comment.deletedAt ? 'This comment was deleted.' : comment.content, isDeleted: Boolean(comment.deletedAt), isMine: req.user ? String(comment.author?._id) === req.user.sub : false, canAdminDelete: req.user?.role === 'admin', likesCount: comment.likes.length, isLikedByMe: req.user ? comment.likes.some((id) => String(id) === req.user.sub) : false, replies: [] }]));
@@ -111,7 +119,7 @@ router.get('/:id/comments', optionalAuth, async (req, res, next) => {
 
 router.post('/:id/comments', requireAuth, async (req, res, next) => {
   try {
-    const post = await Post.findOne({ _id: req.params.id, deletedAt: null, $or: [{ publishStatus: 'approved' }, { publishStatus: { $exists: false } }] });
+    const post = await findVisiblePost(req.params.id);
     if (!post) return res.status(404).json({ success: false, message: 'Post not found.' });
     const content = String(req.body.content || '').trim();
     if (!content) return res.status(400).json({ success: false, message: 'Comment text is required.' });
@@ -125,7 +133,7 @@ router.post('/:id/comments', requireAuth, async (req, res, next) => {
 
 router.post('/:id/like', requireAuth, async (req, res, next) => {
   try {
-    const post = await Post.findOne({ _id: req.params.id, deletedAt: null, $or: [{ publishStatus: 'approved' }, { publishStatus: { $exists: false } }] });
+    const post = await findVisiblePost(req.params.id);
     if (!post) return res.status(404).json({ success: false, message: 'Post not found.' });
     const already = post.likes.some((id) => String(id) === req.user.sub);
     if (already) post.likes.pull(req.user.sub); else post.likes.addToSet(req.user.sub);
@@ -163,8 +171,9 @@ router.delete('/:id', requireAuth, async (req, res, next) => {
 
 router.get('/:id', optionalAuth, async (req, res, next) => {
   try {
-    const post = await Post.findOne({ _id: req.params.id, deletedAt: null, $or: [{ publishStatus: 'approved' }, { publishStatus: { $exists: false } }] }).populate('author', postFields);
+    const post = await findVisiblePost(req.params.id);
     if (!post) return res.status(404).json({ success: false, message: 'Post not found.' });
+    await post.populate('author', postFields);
     res.json({ success: true, post });
   } catch (error) { next(error); }
 });
