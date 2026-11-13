@@ -108,7 +108,13 @@ export function MapLocationSearch({ onSelect, t }) {
     watchId.current = navigator.geolocation.watchPosition(({ coords }) => {
       const point = [coords.latitude, coords.longitude];
       setAccuracy(Number.isFinite(coords.accuracy) ? coords.accuracy : null);
-      if (!isPalawanCoordinate(point)) { setMessage(t('Your current location is outside the supported Palawan map area.')); return; }
+      if (!isPalawanCoordinate(point)) {
+        stopFollowing();
+        setAccuracy(null);
+        setMessage('');
+        onSelect(point);
+        return;
+      }
       setMessage('');
       onSelect(point);
       const previous = lastTrackedPoint.current;
