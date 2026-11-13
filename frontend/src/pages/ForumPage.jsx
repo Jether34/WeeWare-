@@ -281,8 +281,8 @@ export default function ForumPage({ profileId = '', compact = false }) {
 
   return <div className={`page forum-page ${compact ? 'forum-profile-feed' : ''}`}>
     {!compact && <>
-      <h1 className="page-title">{t('Community forum')}</h1>
-      <p className="page-subtitle">{t('Share field observations, ask questions, and learn from the Palawan community.')}</p>
+      <div className="forum-heading"><h1 className="page-title">{t('Community forum')}</h1>
+      <p className="page-subtitle">{t('Share field observations, ask questions, and learn from the Palawan community.')}</p></div>
       <label className="field community-search"><span>{t('Search community')}</span><input type="search" value={searchText} onChange={(event) => setSearchText(event.target.value)} placeholder={t('Search posts and people…')} /></label>
       {query && <><p className="community-search-summary">{t('Search results for “{{query}}”', { query })}</p><div className="community-search-filters" role="tablist" aria-label={t('Filter search results')}><button type="button" role="tab" aria-selected={searchFilter === 'all'} className={searchFilter === 'all' ? 'active' : ''} onClick={() => setSearchFilter('all')}>{t('All')}</button><button type="button" role="tab" aria-selected={searchFilter === 'posts'} className={searchFilter === 'posts' ? 'active' : ''} onClick={() => setSearchFilter('posts')}>{t('Posts')}</button><button type="button" role="tab" aria-selected={searchFilter === 'people'} className={searchFilter === 'people' ? 'active' : ''} onClick={() => setSearchFilter('people')}>{t('People')}</button></div></>}
     </>}

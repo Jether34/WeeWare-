@@ -71,3 +71,5 @@
 @keyframes dialog-backdrop-in{from{opacity:0}to{opacity:1}}
 @keyframes dialog-card-in{from{opacity:0;transform:translateY(8px) scale(.985)}to{opacity:1;transform:translateY(0) scale(1)}}
 @media(max-width:700px){.auth-form,.auth-content .auth-form{width:100%;max-width:440px}.auth-form .field>input,.auth-form .auth-password,.auth-form .auth-password input{height:46px}.confirm-dialog{padding:23px 20px;border-radius:17px}.confirm-dialog-actions{gap:8px}.confirm-dialog-actions .button{flex:1;min-width:0}}
+
+@media(max-width:700px){.forum-page .forum-heading{display:none}}
