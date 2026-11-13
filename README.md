@@ -24,6 +24,8 @@ scripts/                  Setup, startup, data preparation, and report tools
 4. Run `./scripts/start.ps1`, or run `npm run dev` from the repository root.
 5. Open <http://localhost:5180>. Vite proxies API, upload, and Socket.IO requests to Express; Express connects to the internal Python ML service.
 
+To enable Weka analysis in the researcher workspace, run `npm run setup:weka` in PowerShell once and restart the ML service. This installs the pinned Weka 3.8.7 Java runtime in a gitignored local cache. The researcher dashboard uses Weka for separate Random Forest, M5P, or Linear Regression cross-validation; it does not replace or deploy the live LASSO model.
+
 The API serves the built frontend after `npm run build`. During development Vite proxies requests to Express.
 
 ## Main flows

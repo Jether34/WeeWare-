@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "concurrently -n web,api,ml -c green,blue,yellow \"npm run dev -w frontend\" \"npm run dev -w backend\" \"node scripts/run-ml.js\"",
     "build": "npm run build -w frontend",
+    "setup:weka": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/setup-weka.ps1",
     "start:api": "npm start -w backend",
     "start:ml": "node scripts/run-ml.js"
   },

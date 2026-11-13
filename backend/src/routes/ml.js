@@ -35,6 +35,7 @@ async function proxyJson(pathname, res, options = {}) {
 router.get('/model-info', ...researcherAccess, (_req, res) => proxyJson('/model/info', res));
 router.get('/train/status', ...researcherAccess, (_req, res) => proxyJson('/train/status', res));
 router.get('/train/experiments', ...researcherAccess, (_req, res) => proxyJson('/train/experiments', res));
+router.get('/weka/status', ...researcherAccess, (_req, res) => proxyJson('/weka/status', res));
 
 router.get('/researcher/dashboard', ...researcherAccess, async (_req, res, next) => {
   try {
@@ -88,6 +89,26 @@ async function sendDataset(req, res, endpoint) {
 
 router.post('/train/preview', ...researcherAccess, datasetUpload.single('dataset'), (req, res) => sendDataset(req, res, '/train/preview'));
 router.post('/train', ...researcherAccess, datasetUpload.single('dataset'), (req, res) => sendDataset(req, res, '/train'));
+router.post('/weka/analyze', ...researcherAccess, datasetUpload.single('dataset'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ success: false, message: 'Choose an Excel workbook or CSV file first.' });
+  try {
+    const response = await trackedFetch(`${env.mlServiceUrl}/weka/analyze`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': path.extname(req.file.originalname).toLowerCase() === '.csv' ? 'text/csv' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'X-Dataset-Name': encodeURIComponent(path.basename(req.file.originalname)),
+        'X-Weka-Algorithm': String(req.body.algorithm || 'random_forest'),
+        'X-Weka-Folds': String(req.body.folds || '5'),
+      },
+      body: req.file.buffer,
+      signal: AbortSignal.timeout(240_000),
+    });
+    return await jsonResponse(response, res);
+  } catch (error) {
+    console.error('[ml] Weka analysis failed:', error);
+    return res.status(503).json({ success: false, message: 'Weka analysis service is unavailable. Please try again shortly.' });
+  }
+});
 router.post('/train/palawan', ...researcherAccess, async (req, res) => {
   try {
     const response = await trackedFetch(`${env.mlServiceUrl}/train/palawan`, {

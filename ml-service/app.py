@@ -18,6 +18,7 @@ from openpyxl.styles import Alignment, Font, PatternFill
 
 import climate
 import model
+import weka_analysis
 
 ROOT = Path(__file__).resolve().parent
 
@@ -70,6 +71,11 @@ def model_info():
 @app.get("/train/status")
 def training_status():
     return model.training_status()
+
+
+@app.get("/weka/status")
+def weka_status():
+    return weka_analysis.runtime_status()
 
 
 @app.get("/train/experiments")
@@ -130,6 +136,20 @@ async def preview_training_dataset(request: Request):
         return await run_in_threadpool(model.preview_dataset, dataset, filename)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/weka/analyze")
+async def analyze_with_weka(request: Request):
+    dataset, filename, _ = await _dataset_bytes(request)
+    algorithm = request.headers.get("x-weka-algorithm", "random_forest")
+    folds = request.headers.get("x-weka-folds", "5")
+    try:
+        return await run_in_threadpool(weka_analysis.analyze_dataset, dataset, filename, algorithm, folds)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        status = 503 if "not installed" in str(exc).lower() else 422
+        raise HTTPException(status_code=status, detail=str(exc)) from exc
 
 
 @app.post("/train")

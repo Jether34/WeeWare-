@@ -86,7 +86,7 @@ The routes below are the active routes in `frontend/src/App.jsx`. Pages inside `
 | `/app/messages` | Messages | Direct conversations, role-pinned contacts, designated Admin/DA/Researcher group chat, and admin broadcasts. Group files retain their original filename. |
 | `/app/ai` | AI assistant | Stores an account's question/answer conversations and lets the user continue them. Availability depends on the configured local AI provider. |
 | `/app/settings` | Profile settings | Edits the member's profile, public-field visibility, language, password, and account controls. |
-| `/app/system-iteration` | Research workspace | Researcher-only model/data dashboard: view model/experiment data, preview eligible CSV/XLSX input, retrain, and activate experiments. |
+| `/app/system-iteration` | Research workspace | Researcher-only model/data dashboard: view model/experiment data, preview eligible CSV/XLSX input, run separate Weka regression comparisons, retrain, and activate LASSO experiments. |
 | `/app/da` | DA dashboard | DA or admin view of forecast counts, represented locations, risk summaries, and recent forecasts. |
 | `/app/admin` | Admin dashboard | Admin-only account, moderation, conversation, database schema, system configuration, service health, topology, and traffic controls. |
 
@@ -108,11 +108,11 @@ The Express API is mounted under `/api`. Express exposes `/api/health`; a genera
 | `/api/uploads` | Upload post media; query permitted media types and configured file limit. |
 | `/api/notifications` | `GET /` notifications and unread count; `PATCH /read` for one/all read state. |
 | `/api/ai/conversations` | List/create conversations and append a user message/AI response. |
-| `/api/ml` | Researcher/admin proxy for model information, training status/experiments, template, dataset preview/training, Palawan retraining, experiment activation/download/deletion. |
+| `/api/ml` | Researcher/admin proxy for model information, training status/experiments, Weka runtime status/analysis, template, dataset preview/training, Palawan retraining, experiment activation/download/deletion. |
 | `/api/moderation` | Submit content removal requests; admin queue/review/publication/removal operations. |
 | `/api/system` | Admin overview/users/roles/conversations/schema/config/traffic/health; DA/admin forecast overview. |
 
-The ML service endpoints include `GET /health`, `/model/info`, `/train/status`, `/train/experiments`, `/train/template`, `/climate/years`, `/climate/year/{year}`, `/climate/window`; `POST /train/preview`, `/train`, `/train/palawan`, `/train/experiments/{id}/activate`, `/predict`; `GET /train/experiments/{id}/dataset`; and `DELETE /train/experiments/{id}`. The service is intended to be internal behind Express in normal deployment. Do not expose its training operations directly to untrusted clients.
+The ML service endpoints include `GET /health`, `/model/info`, `/train/status`, `/train/experiments`, `/train/template`, `/weka/status`, `/climate/years`, `/climate/year/{year}`, `/climate/window`; `POST /train/preview`, `/train`, `/train/palawan`, `/weka/analyze`, `/train/experiments/{id}/activate`, `/predict`; `GET /train/experiments/{id}/dataset`; and `DELETE /train/experiments/{id}`. The Weka analyzer reports random-fold regression metrics for comparison only and cannot activate a production model. The service is intended to be internal behind Express in normal deployment. Do not expose its training operations directly to untrusted clients.
 
 ## Services and persisted data
 

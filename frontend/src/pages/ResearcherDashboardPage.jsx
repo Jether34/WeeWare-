@@ -40,6 +40,10 @@ export default function ResearcherDashboardPage() {
   const [config, setConfig] = useState(defaultConfig);
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
+  const [wekaRuntime, setWekaRuntime] = useState(null);
+  const [wekaResult, setWekaResult] = useState(null);
+  const [wekaAlgorithm, setWekaAlgorithm] = useState('random_forest');
+  const [wekaFolds, setWekaFolds] = useState(5);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [action, setAction] = useState('');
@@ -62,6 +66,7 @@ export default function ResearcherDashboardPage() {
   }, []);
 
   useEffect(() => { loadDashboard(); const timer = window.setInterval(loadDashboard, busy ? 2200 : 4000); return () => window.clearInterval(timer); }, [loadDashboard, busy]);
+  useEffect(() => { api.get('/ml/weka/status').then(({ data }) => setWekaRuntime(data)).catch(() => setWekaRuntime({ available: false })); }, []);
 
   const configPayload = useMemo(() => ({ ...config, alpha: Number(config.alpha), cv_folds: Number(config.cv_folds), max_iter: Number(config.max_iter), prediction: Object.fromEntries(Object.entries(config.prediction).map(([key, value]) => [key, Number(value)])) }), [config]);
   const oneClickTrainingConfig = useMemo(() => ({ ...configPayload, alpha_mode: 'fixed', alpha: 0.05 }), [configPayload]);
@@ -110,6 +115,20 @@ export default function ResearcherDashboardPage() {
     finally { setBusy(false); setAction(''); }
   }
 
+  async function analyzeWithWeka() {
+    if (!file || busy) return;
+    setBusy(true); setAction('weka'); setError(''); setNotice(''); setWekaResult(null);
+    const form = uploadForm();
+    form.set('algorithm', wekaAlgorithm);
+    form.set('folds', String(wekaFolds));
+    try {
+      const { data } = await api.post('/ml/weka/analyze', form, { timeout: 240_000 });
+      setWekaResult(data);
+      setNotice(`Weka ${data.algorithm_label} completed ${data.folds}-fold cross-validation on ${data.rows} rows.`);
+    } catch (err) { setError(err.message); }
+    finally { setBusy(false); setAction(''); }
+  }
+
   const model = dashboard?.model || {};
   const training = dashboard?.training || {};
   const predictions = dashboard?.predictions || [];
@@ -137,6 +156,18 @@ export default function ResearcherDashboardPage() {
           <div className="research-action-row"><button type="button" className="button secondary" disabled={!file || busy} onClick={previewDataset}>{action === 'preview' ? 'Validating…' : 'Validate and preview'}</button><button type="button" className="button" disabled={!file || busy} onClick={startTraining}>{action === 'training' ? 'Training…' : 'Retrain and deploy model'}</button></div>
           {training.state === 'running' && <div className="training-progress"><div className="training-progress-copy"><strong>{training.message || 'Training model…'}</strong><span>{training.progress || 0}%</span></div><div className="training-progress-track"><i style={{ width: `${training.progress || 0}%` }}/></div></div>}
           {preview && <div className="dataset-preview"><div className="dataset-preview-head"><div><strong>Validated dataset</strong><span>{preview.rows} location-year rows · {preview.locations || 1} locations · {preview.years} years ({preview.year_start}–{preview.year_end})</span></div><small>Dataset is sent to the model service when retraining starts.</small></div><div className="research-table-wrap"><table className="research-data-table"><thead><tr>{preview.columns.map((column) => <th key={column}>{column.replace('_', ' ')}</th>)}</tr></thead><tbody>{preview.preview.map((row, index) => <tr key={index}>{preview.columns.map((column) => <td key={column}>{column === 'location' ? row[column] : Number(row[column]).toLocaleString(undefined, { maximumFractionDigits: 3 })}</td>)}</tr>)}</tbody></table></div></div>}
+        </section>
+
+        <section className="card research-panel weka-research-panel">
+          <div className="research-panel-head"><div><span className="section-kicker">EXPLORATORY MODELING</span><h2>Weka model analysis</h2><p>Compare a Weka regression algorithm on the selected dataset. This evaluation is separate from the live LASSO model and cannot deploy to production.</p></div><span className={`research-live-chip ${wekaRuntime?.available ? '' : 'weka-unavailable'}`}><i/>{wekaRuntime?.available ? `Weka ${wekaRuntime.version}` : 'Runtime unavailable'}</span></div>
+          <div className="research-config-grid weka-config-grid">
+            <label><span>Weka algorithm</span><select value={wekaAlgorithm} onChange={(event) => { setWekaAlgorithm(event.target.value); setWekaResult(null); }}><option value="random_forest">Random Forest</option><option value="m5p">M5P Model Tree</option><option value="linear_regression">Linear Regression</option></select></label>
+            <label><span>Random cross-validation folds</span><select value={wekaFolds} onChange={(event) => { setWekaFolds(Number(event.target.value)); setWekaResult(null); }}>{[2,3,4,5,6,7,8,9,10].map((fold) => <option key={fold} value={fold}>{fold} folds</option>)}</select></label>
+            <div className="research-method-summary"><strong>Dataset for analysis</strong><span>{file ? file.name : 'Select a CSV or XLSX dataset in the training section above.'}</span></div>
+          </div>
+          {!wekaRuntime?.available && <p className="research-footnote">Install the pinned Weka runtime with <code>npm run setup:weka</code>, then restart the ML service.</p>}
+          <div className="research-action-row"><button type="button" className="button" disabled={!file || busy || !wekaRuntime?.available} onClick={analyzeWithWeka}>{action === 'weka' ? 'Running Weka analysis…' : 'Run Weka analysis'}</button></div>
+          {wekaResult && <><div className="validation-metrics weka-result-metrics"><Metric label="Cross-validation MAE" value={Number(wekaResult.metrics.mae).toFixed(3)} detail="percentage points; lower is better"/><Metric label="Cross-validation RMSE" value={Number(wekaResult.metrics.rmse).toFixed(3)} detail="percentage points; lower is better"/><Metric label="Correlation" value={Number(wekaResult.metrics.correlation).toFixed(3)} detail="observed vs predicted"/></div><p className="research-footnote">{wekaResult.validation} · {wekaResult.rows} rows · features: {wekaResult.features.join(', ')}. {wekaResult.note}</p></>}
         </section>
 
         <section className="card research-panel configuration-panel">

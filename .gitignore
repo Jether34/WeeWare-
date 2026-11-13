@@ -4,6 +4,7 @@ backend/uploads/*
 !backend/uploads/.gitkeep
 backend/.env
 ml-service/.venv/
+ml-service/.cache/weka/
 ml-service/__pycache__/
 ml-service/.pytest_cache/
 *.log
