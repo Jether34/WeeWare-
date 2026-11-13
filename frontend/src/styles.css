@@ -151,3 +151,27 @@
 .map-interaction-overlays .map-search-controls,.map-interaction-overlays .map-compass,.map-interaction-overlays .map-live-location{pointer-events:auto}
 
 .dialog-backdrop.region-alert-backdrop{backdrop-filter:none;-webkit-backdrop-filter:none}
+
+/* Keep conversation management visible in both the inbox and an open chat. */
+.messages-page .message-thread-actions{opacity:1;gap:5px}
+.messages-page .message-thread-actions button{min-height:32px;padding:6px 9px;border:1px solid #d9e5dc;border-radius:8px;background:#f7faf7;color:#315c40;font-size:11px;font-weight:700;white-space:nowrap}
+.messages-page .message-thread-actions button:last-child{border-color:#f0d7d2;background:#fff8f6;color:#a64132}
+.messages-page .message-thread-actions button:hover{background:#eaf3ed;color:#155b3b}
+.messages-page .message-thread-actions button:last-child:hover{background:#fff0ed;color:#b7432e}
+.messages-page .conversation-header .conversation-peer-details{display:flex;min-width:0;flex:1 1 auto;flex-direction:column;gap:4px;overflow:hidden}
+.messages-page .conversation-peer-details strong,.messages-page .conversation-peer-details small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.messages-page .conversation-header .conversation-header-actions{display:flex;flex:none;flex-direction:row;align-items:center;gap:7px;margin-left:auto}
+.messages-page .conversation-header-actions button{min-height:36px;padding:7px 11px;border:1px solid #cfe1d3;border-radius:9px;background:#f1f7f2;color:#17643d;font-size:12px;font-weight:750;white-space:nowrap;cursor:pointer}
+.messages-page .conversation-header-actions button:hover{background:#e3f0e6}
+.messages-page .conversation-header-actions .delete-conversation-action{border-color:#f0d0ca;background:#fff5f2;color:#a33f31}
+.messages-page .conversation-header-actions .delete-conversation-action:hover{background:#ffebe6}
+.messages-page .conversation-header-actions button:focus-visible,.messages-page .message-thread-actions button:focus-visible{outline:3px solid #86bd96;outline-offset:2px}
+@media(max-width:760px){
+  .messages-page .message-thread-row{gap:5px;padding-right:2px}
+  .messages-page .message-thread-actions{gap:3px}
+  .messages-page .message-thread-actions button{min-height:32px;padding:5px 7px;font-size:10px}
+  .messages-page .conversation-header{flex-wrap:wrap}
+  .messages-page .conversation-header .conversation-peer-details{flex:1 1 120px}
+  .messages-page .conversation-header .conversation-header-actions{width:100%;justify-content:flex-end;margin-left:0;padding-left:50px}
+  .messages-page .conversation-header-actions button{min-height:36px;flex:1;padding:7px 9px}
+}
