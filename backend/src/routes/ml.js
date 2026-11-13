@@ -89,6 +89,25 @@ async function sendDataset(req, res, endpoint) {
 
 router.post('/train/preview', ...researcherAccess, datasetUpload.single('dataset'), (req, res) => sendDataset(req, res, '/train/preview'));
 router.post('/train', ...researcherAccess, datasetUpload.single('dataset'), (req, res) => sendDataset(req, res, '/train'));
+router.post('/weka/analyze/palawan', ...researcherAccess, async (req, res) => {
+  const options = req.body || {};
+  try {
+    const response = await trackedFetch(`${env.mlServiceUrl}/weka/analyze/palawan`, {
+      method: 'POST',
+      headers: {
+        'X-Weka-Algorithm': String(options.algorithm || 'random_forest'),
+        'X-Weka-Folds': String(options.folds || '5'),
+        'X-Weka-Low-Threshold': String(options.lowThreshold || '33'),
+        'X-Weka-High-Threshold': String(options.highThreshold || '66'),
+      },
+      signal: AbortSignal.timeout(240_000),
+    });
+    return await jsonResponse(response, res);
+  } catch (error) {
+    console.error('[ml] prepared Weka analysis failed:', error);
+    return res.status(503).json({ success: false, message: 'Weka analysis service is unavailable. Please try again shortly.' });
+  }
+});
 router.post('/weka/analyze', ...researcherAccess, datasetUpload.single('dataset'), async (req, res) => {
   if (!req.file) return res.status(400).json({ success: false, message: 'Choose an Excel workbook or CSV file first.' });
   try {

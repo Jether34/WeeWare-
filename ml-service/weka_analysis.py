@@ -156,6 +156,7 @@ def analyze_dataset(dataset_bytes: bytes, filename: str, algorithm: str, folds: 
     return {
         "engine": "Weka",
         "version": runtime["version"],
+        "filename": Path(filename).name,
         "algorithm": algorithm,
         "algorithm_label": label,
         "folds": folds,

@@ -45,7 +45,7 @@ function WekaEvaluationView({ result, onDownload }) {
       <div className="weka-evaluation-title"><div><h3>Cross-validation predictions</h3><p>Showing the first {Math.min(20, points.length)} of {points.length} held-out predictions, in Weka output order.</p></div></div>
       <div className="research-table-wrap weka-prediction-scroll"><table className="research-data-table"><thead><tr><th>CV row</th><th>Observed %</th><th>Predicted %</th><th>Abs. error</th><th>Actual risk</th><th>Predicted risk</th></tr></thead><tbody>{points.slice(0, 20).map((point) => <tr key={point.row}><td>{point.row}</td><td>{point.actual.toFixed(3)}</td><td>{point.predicted.toFixed(3)}</td><td>{point.absolute_error.toFixed(3)}</td><td>{point.actual_risk}</td><td>{point.predicted_risk}</td></tr>)}</tbody></table></div>
     </section>
-    <p className="research-footnote">{result.validation} · {result.rows} rows · features: {result.features.join(', ')}. {result.note}</p>
+    <p className="research-footnote">Dataset: {result.filename} · {result.validation} · {result.rows} rows · features: {result.features.join(', ')}. {result.note}</p>
   </div>;
 }
 
@@ -77,6 +77,7 @@ export default function ResearcherDashboardPage() {
   const [dashboard, setDashboard] = useState(null);
   const [config, setConfig] = useState(defaultConfig);
   const [file, setFile] = useState(null);
+  const [wekaFile, setWekaFile] = useState(null);
   const [preview, setPreview] = useState(null);
   const [wekaRuntime, setWekaRuntime] = useState(null);
   const [wekaResult, setWekaResult] = useState(null);
@@ -91,6 +92,7 @@ export default function ResearcherDashboardPage() {
   const [notice, setNotice] = useState('');
   const [isDraggingFile, setIsDraggingFile] = useState(false);
   const fileInput = useRef(null);
+  const wekaFileInput = useRef(null);
   const configInitialized = useRef(false);
 
   const loadDashboard = useCallback(async () => {
@@ -117,6 +119,12 @@ export default function ResearcherDashboardPage() {
     if (nextFile && !/\.(xlsx|csv)$/i.test(nextFile.name)) { setFile(null); setError('Use an .xlsx workbook or .csv file. Older .xls files are not supported.'); return; }
     if (nextFile && nextFile.size > 12 * 1024 * 1024) { setFile(null); setError('Training datasets must be 12 MB or smaller.'); return; }
     setFile(nextFile); setError('');
+  }
+  function selectWekaFile(nextFile) {
+    setWekaResult(null); setNotice('');
+    if (nextFile && !/\.(xlsx|csv)$/i.test(nextFile.name)) { setWekaFile(null); setError('Use a WeeWare .xlsx workbook or .csv file for Weka analysis.'); return; }
+    if (nextFile && nextFile.size > 12 * 1024 * 1024) { setWekaFile(null); setError('Weka datasets must be 12 MB or smaller.'); return; }
+    setWekaFile(nextFile); setError('');
   }
   function uploadForm(modelConfig = configPayload) { const form = new FormData(); form.append('dataset', file); form.append('modelConfig', JSON.stringify(modelConfig)); return form; }
 
@@ -154,16 +162,21 @@ export default function ResearcherDashboardPage() {
     finally { setBusy(false); setAction(''); }
   }
 
-  async function analyzeWithWeka() {
-    if (!file || busy) return;
-    setBusy(true); setAction('weka'); setError(''); setNotice(''); setWekaResult(null);
-    const form = uploadForm();
-    form.set('algorithm', wekaAlgorithm);
-    form.set('folds', String(wekaFolds));
-    form.set('lowThreshold', String(wekaLowThreshold));
-    form.set('highThreshold', String(wekaHighThreshold));
+  async function analyzeWithWeka(usePrepared = false) {
+    const analysisFile = wekaFile || file;
+    if ((!usePrepared && !analysisFile) || busy) return;
+    setBusy(true); setAction(usePrepared ? 'weka-prepared' : 'weka'); setError(''); setNotice(''); setWekaResult(null);
     try {
-      const { data } = await api.post('/ml/weka/analyze', form, { timeout: 240_000 });
+      let response;
+      if (usePrepared) {
+        response = await api.post('/ml/weka/analyze/palawan', { algorithm: wekaAlgorithm, folds: wekaFolds, lowThreshold: wekaLowThreshold, highThreshold: wekaHighThreshold }, { timeout: 240_000 });
+      } else {
+        const form = new FormData(); form.append('dataset', analysisFile); form.append('modelConfig', JSON.stringify(configPayload));
+        form.append('algorithm', wekaAlgorithm); form.append('folds', String(wekaFolds));
+        form.append('lowThreshold', String(wekaLowThreshold)); form.append('highThreshold', String(wekaHighThreshold));
+        response = await api.post('/ml/weka/analyze', form, { timeout: 240_000 });
+      }
+      const { data } = response;
       setWekaResult(data);
       setNotice(`Weka ${data.algorithm_label} completed ${data.folds}-fold cross-validation on ${data.rows} rows.`);
     } catch (err) { setError(err.message); }
@@ -217,11 +230,11 @@ export default function ResearcherDashboardPage() {
             <label><span>Cross-validation folds</span><select value={wekaFolds} onChange={(event) => { setWekaFolds(Number(event.target.value)); setWekaResult(null); }}>{[2,3,4,5,6,7,8,9,10].map((fold) => <option key={fold} value={fold}>{fold} folds</option>)}</select></label>
             <label><span>Low risk cutoff (%)</span><input type="number" min="0" max="99.99" step="any" value={wekaLowThreshold} onChange={(event) => { setWekaLowThreshold(Number(event.target.value)); setWekaResult(null); }}/></label>
             <label><span>High risk cutoff (%)</span><input type="number" min="0.01" max="100" step="any" value={wekaHighThreshold} onChange={(event) => { setWekaHighThreshold(Number(event.target.value)); setWekaResult(null); }}/></label>
-            <div className="research-method-summary"><strong>Dataset to evaluate</strong><span>{file ? `${file.name} · ${preview?.rows ?? 'validate to view'} rows` : 'Choose a CSV or XLSX dataset in the training card above.'}</span></div>
+            <div className="research-method-summary weka-dataset-summary"><strong>Dataset to evaluate</strong><span>{wekaFile ? `${wekaFile.name} · selected for Weka` : file ? `${file.name} · using the training-card file` : 'No uploaded file selected. You can analyze the prepared Palawan dataset below.'}</span><input ref={wekaFileInput} type="file" accept=".xlsx,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv" aria-label="Choose a Weka dataset" onChange={(event) => { selectWekaFile(event.target.files?.[0] || null); event.currentTarget.value = ''; }}/><button type="button" className="button secondary" onClick={() => wekaFileInput.current?.click()}>Choose Weka dataset</button></div>
           </div>
           {!wekaRuntime?.available && <p className="research-footnote">Install the pinned Weka runtime with <code>npm run setup:weka</code>, then restart the ML service.</p>}
           <p className="research-footnote">Weka runs random-fold cross-validation. The risk-band confusion matrix is derived from each held-out predicted rate using the cutoffs above. This analysis is separate from the production LASSO model.</p>
-          <div className="research-action-row"><button type="button" className="button" disabled={!file || busy || !wekaRuntime?.available} onClick={analyzeWithWeka}>{action === 'weka' ? 'Evaluating with Weka…' : 'Run Weka evaluation'}</button></div>
+          <div className="research-action-row"><button type="button" className="button secondary" disabled={busy || !wekaRuntime?.available} onClick={() => analyzeWithWeka(true)}>{action === 'weka-prepared' ? 'Evaluating prepared data…' : 'Analyze prepared Palawan dataset'}</button><button type="button" className="button" disabled={(!wekaFile && !file) || busy || !wekaRuntime?.available} onClick={() => analyzeWithWeka(false)}>{action === 'weka' ? 'Evaluating with Weka…' : 'Run Weka evaluation'}</button></div>
           <WekaEvaluationView result={wekaResult} onDownload={downloadWekaPredictions}/>
         </section>
       </div>

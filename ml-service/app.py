@@ -154,6 +154,24 @@ async def analyze_with_weka(request: Request):
         raise HTTPException(status_code=status, detail=str(exc)) from exc
 
 
+@app.post("/weka/analyze/palawan")
+async def analyze_prepared_palawan_with_weka(request: Request):
+    dataset_path = ROOT.parent / "datasets" / "processed" / "climate_training" / "palawan_retraining_dataset.csv"
+    if not dataset_path.is_file():
+        raise HTTPException(status_code=404, detail="The prepared Palawan annual dataset is not installed.")
+    algorithm = request.headers.get("x-weka-algorithm", "random_forest")
+    folds = request.headers.get("x-weka-folds", "5")
+    low_threshold = request.headers.get("x-weka-low-threshold", "33")
+    high_threshold = request.headers.get("x-weka-high-threshold", "66")
+    try:
+        return await run_in_threadpool(weka_analysis.analyze_dataset, dataset_path.read_bytes(), dataset_path.name, algorithm, folds, low_threshold, high_threshold)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        status = 503 if "not installed" in str(exc).lower() else 422
+        raise HTTPException(status_code=status, detail=str(exc)) from exc
+
+
 @app.post("/train")
 async def train_model(request: Request):
     dataset, filename, config = await _dataset_bytes(request)
