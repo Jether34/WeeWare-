@@ -4,9 +4,18 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '../auth';
 import api from '../api';
 import { io } from 'socket.io-client';
+import StyledDropdown from './StyledDropdown';
 
 const nav = [
   ['/app/prediction', 'prediction', '◉'], ['/app/history', 'history', '◷'], ['/app/saved', 'saved', '☆'], ['/app/forum', 'forum', '◎'], ['/app/messages', 'messages', '✉'], ['/app/settings', 'settings', '⚙'],
+];
+const headerLanguages = [
+  { value: 'en', label: 'English', shortLabel: 'EN', code: 'EN' },
+  { value: 'tl', label: 'Filipino', shortLabel: 'FIL', code: 'TL' },
+  { value: 'ceb', label: 'Cebuano', shortLabel: 'CEB', code: 'CEB' },
+  { value: 'hil', label: 'Hiligaynon', shortLabel: 'HIL', code: 'HIL' },
+  { value: 'krj', label: 'Kinaray-a', shortLabel: 'KRJ', code: 'KRJ' },
+  { value: 'cyo', label: 'Cuyonon', shortLabel: 'CUY', code: 'CUY' },
 ];
 
 export default function Layout() {
@@ -63,7 +72,7 @@ export default function Layout() {
     <header className="topbar">
       <NavLink to="/app/prediction" className="brand"><img src="/assets/weeware-vps-logo.png" alt="" /><span>WeeWare</span></NavLink>
       <div className="top-actions">
-        <label className="language-select-wrap" aria-label={t('Choose language')}><span className="sr-only">{t('Choose language')}</span><select className="language-select" value={i18n.resolvedLanguage || 'en'} onChange={(event) => { i18n.changeLanguage(event.target.value); localStorage.setItem('weeware-language', event.target.value); }}><option value="en">EN</option><option value="tl">TL</option><option value="ceb">CEB</option><option value="hil">HIL</option><option value="krj">KRJ</option><option value="cyo">CUY</option></select></label><div className="notification-wrap" ref={notificationWrapRef}><button className={`notification-button ${notificationsOpen ? 'is-open' : ''}`} aria-expanded={notificationsOpen} onClick={toggleNotifications} aria-label={t('Notifications')} title={t('Notifications')}><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M24 4c-8.1 0-14 6.2-14 14.6v8.1c0 3.1-1.2 5.7-3.5 7.7-.9.8-.3 2.3.9 2.3h33.2c1.2 0 1.8-1.5.9-2.3-2.3-2-3.5-4.6-3.5-7.7v-8.1C38 10.2 32.1 4 24 4Zm-5.4 36.2a5.6 5.6 0 0 0 10.8 0H18.6Z" /></svg>{unread > 0 && <b className="notification-count">{unread > 99 ? '99+' : unread}</b>}</button>{notificationsOpen && <section className="notification-menu"><div className="section-head"><strong>{t('Notifications')}</strong><button className="quiet-button" onClick={markAllRead}>{t('Mark all read')}</button></div>{notificationsLoading && notifications.length === 0 ? <p className="muted" role="status">{t('Loading notifications…')}</p> : notifications.length ? notifications.map((item) => <button type="button" className={`notification-row ${item.isRead ? '' : 'unread'}`} key={item._id} onClick={() => openNotification(item)}><strong>{item.actor?.fullName || t('A community member')}</strong> {notificationText(item.type)}<small>{new Date(item.createdAt).toLocaleString()}</small></button>) : <p className="muted">{t('No notifications yet.')}</p>}</section>}</div>
+        <div className="language-select-wrap"><StyledDropdown className="topbar-language-picker" value={i18n.resolvedLanguage || 'en'} options={headerLanguages} onChange={(language) => { i18n.changeLanguage(language); localStorage.setItem('weeware-language', language); }} label={t('Choose language')} icon /></div><div className="notification-wrap" ref={notificationWrapRef}><button className={`notification-button ${notificationsOpen ? 'is-open' : ''}`} aria-expanded={notificationsOpen} onClick={toggleNotifications} aria-label={t('Notifications')} title={t('Notifications')}><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M24 4c-8.1 0-14 6.2-14 14.6v8.1c0 3.1-1.2 5.7-3.5 7.7-.9.8-.3 2.3.9 2.3h33.2c1.2 0 1.8-1.5.9-2.3-2.3-2-3.5-4.6-3.5-7.7v-8.1C38 10.2 32.1 4 24 4Zm-5.4 36.2a5.6 5.6 0 0 0 10.8 0H18.6Z" /></svg>{unread > 0 && <b className="notification-count">{unread > 99 ? '99+' : unread}</b>}</button>{notificationsOpen && <section className="notification-menu"><div className="section-head"><strong>{t('Notifications')}</strong><button className="quiet-button" onClick={markAllRead}>{t('Mark all read')}</button></div>{notificationsLoading && notifications.length === 0 ? <p className="muted" role="status">{t('Loading notifications…')}</p> : notifications.length ? notifications.map((item) => <button type="button" className={`notification-row ${item.isRead ? '' : 'unread'}`} key={item._id} onClick={() => openNotification(item)}><strong>{item.actor?.fullName || t('A community member')}</strong> {notificationText(item.type)}<small>{new Date(item.createdAt).toLocaleString()}</small></button>) : <p className="muted">{t('No notifications yet.')}</p>}</section>}</div>
         <button className="user-chip" onClick={() => navigate('/app/settings')} aria-label={t('Edit profile')} title={t('Edit profile')}><span>{user?.fullName?.split(' ')[0]}</span></button>
         <button className="quiet-button" onClick={async () => { try { await signOut(); } finally { navigate('/', { replace: true }); } }}>{t('signOut')}</button>
       </div>

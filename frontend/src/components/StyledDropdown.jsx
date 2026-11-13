@@ -14,7 +14,7 @@ export default function StyledDropdown({ value, options, onChange, label, icon =
   return <div className={`language-picker styled-dropdown ${className} ${open ? 'is-open' : ''}`} ref={root}>
     <button type="button" className="language-trigger" aria-label={label} aria-haspopup="listbox" aria-expanded={open} onClick={() => setOpen((current) => !current)}>
       {icon && <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18"/></svg>}
-      <span>{selected?.label || ''}</span><svg className="language-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg>
+      <span>{selected?.shortLabel || selected?.label || ''}</span><svg className="language-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg>
     </button>
     {open && <div className="language-menu" role="listbox" aria-label={label}>{options.map((option) => <button type="button" role="option" aria-selected={option.value === value} className={`language-option ${option.value === value ? 'active' : ''}`} key={option.value} onClick={() => { onChange(option.value); setOpen(false); }}><span>{option.label}</span>{option.code && <small>{option.code}</small>}{option.value === value && <b aria-hidden="true">✓</b>}</button>)}</div>}
   </div>;

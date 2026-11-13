@@ -119,3 +119,20 @@
 .map-live-location small{color:#6c8173;font-size:9px;font-weight:600}
 @keyframes map-live-pulse{50%{box-shadow:0 0 0 7px #24a35b10}}
 @media(max-width:760px){.map-search-controls{top:9px;right:8px;left:48px;max-width:none;gap:6px}.map-location-search{width:100%;gap:7px;padding:3px 8px}.map-location-search input{height:35px;font-size:12px}.map-search-results{top:44px;width:100%;max-height:34dvh}.map-search-results button{padding:8px}.map-compass{right:9px;bottom:38px}.map-compass-button{width:64px;height:64px}.compass-needle{transform-origin:center}.map-live-location{bottom:40px;left:9px}.prediction-location-step .prediction-map{border-radius:14px}}
+
+/* Compact, branded language picker in the app header */
+.topbar-language-picker{position:relative;z-index:1600;flex:none}
+.topbar-language-picker .language-trigger{min-height:42px;gap:8px;padding:0 11px;border:1px solid #e1eae3;border-radius:13px;background:linear-gradient(180deg,#fff,#f6faf7);box-shadow:0 3px 10px #1733260c;color:#254638;font-size:12px;font-weight:800;transition:border-color .16s ease,box-shadow .16s ease,transform .16s ease}
+.topbar-language-picker .language-trigger:hover{transform:translateY(-1px);border-color:#b4d3bd;box-shadow:0 6px 16px #17332614}
+.topbar-language-picker .language-trigger[aria-expanded=true]{border-color:#8fbea0;background:#f5fbf6;box-shadow:0 0 0 3px #dceee2}
+.topbar-language-picker .language-trigger>span{min-width:28px;text-align:center;letter-spacing:.045em}
+.topbar-language-picker .language-trigger svg:first-child{width:17px;height:17px;color:#17643d}
+.topbar-language-picker .language-trigger .language-chevron{width:13px;height:13px}
+.topbar-language-picker .language-menu{z-index:2100;top:calc(100% + 10px);right:0;width:238px;max-height:min(70vh,440px);overflow:auto;padding:7px;border:1px solid #dfeae2;border-radius:16px;background:rgba(255,255,255,.98);box-shadow:0 20px 55px #1733262b;backdrop-filter:blur(16px);animation:language-menu-enter .15s ease-out}
+.topbar-language-picker .language-option{min-height:45px;grid-template-columns:minmax(0,1fr) auto 16px;gap:10px;padding:9px 10px;border-radius:11px;color:#344f3e;font-size:13px;transition:background .12s ease,color .12s ease}
+.topbar-language-picker .language-option:hover{background:#f1f7f2}
+.topbar-language-picker .language-option.active{background:linear-gradient(100deg,#eaf5ec,#f5faf6);color:#155b3b}
+.topbar-language-picker .language-option small{min-width:34px;padding:4px 6px;border-radius:7px;background:#f0f4f1;color:#718176;text-align:center;font-size:9px;letter-spacing:.07em}
+.topbar-language-picker .language-option.active small{background:#dceee1;color:#286443}
+@keyframes language-menu-enter{from{opacity:0;transform:translateY(-4px) scale(.99)}to{opacity:1;transform:translateY(0) scale(1)}}
+@media(max-width:760px){.topbar-language-picker .language-trigger{min-height:38px;gap:6px;padding:0 8px;border-radius:12px;font-size:11px}.topbar-language-picker .language-trigger svg:first-child{width:15px;height:15px}.topbar-language-picker .language-trigger .language-chevron{width:11px;height:11px}.topbar-language-picker .language-menu{right:-8px;width:218px}}
