@@ -67,13 +67,22 @@ export default function PredictionPage() {
   const [error, setError] = useState('');
   const [saved, setSaved] = useState(false);
   const [savedDialogOpen, setSavedDialogOpen] = useState(false);
+  const [regionUnavailableOpen, setRegionUnavailableOpen] = useState(false);
   const location = useMemo(() => ({ lat: Number(pin[0].toFixed(5)), lng: Number(pin[1].toFixed(5)), name: 'Palawan, Philippines' }), [pin]);
   const endDate = startDate ? addDays(startDate, 364) : '';
   const dates = useMemo(() => ({ startDate, endDate }), [startDate, endDate]);
   const annual = climate?.weather || {};
 
   useEffect(() => { localStorage.setItem('weeware-location', JSON.stringify(location)); }, [location]);
-  function pick(point) { if (!isPalawanCoordinate(point)) { setError(t('Select a pin within the supported Palawan map extent.')); return; } setPin(point); setClimate(null); setPrediction(null); setError(''); }
+  function pick(point) {
+    if (!isPalawanCoordinate(point)) {
+      setError('');
+      if (window.matchMedia('(min-width: 701px)').matches) setRegionUnavailableOpen(true);
+      else setError(t('This region is still locked because of no data'));
+      return;
+    }
+    setPin(point); setClimate(null); setPrediction(null); setError('');
+  }
   async function extractWeather() {
     if (!startDate || loadingClimate) return;
     setLoadingClimate(true); setClimate(null); setPrediction(null); setError('');
@@ -100,7 +109,7 @@ export default function PredictionPage() {
 
     {step === 1 && <section className="prediction-step-card card prediction-location-step"><div className="prediction-step-title"><span>1</span><div><h2>{t('Pin a location')}</h2></div></div>
       <div className="pin-readout"><span>{location.lat.toFixed(5)}° N, {location.lng.toFixed(5)}° E</span></div>
-      <div className="prediction-map"><MapContainer center={center} zoom={6} minZoom={5} maxZoom={20} scrollWheelZoom className="prediction-map-canvas"><MapLocationSearch onSelect={pick} t={t} /><PalawanMangoAreas t={t} /><FitPalawanExtent /><MapClick onPick={pick} /><Marker position={pin} icon={icon} draggable eventHandlers={{ dragend: (event) => { const point = event.target.getLatLng(); pick([point.lat, point.lng]); } }}><Tooltip permanent direction="top" offset={[0, -10]}>{t('Selected mango farm location')}</Tooltip><Popup>{t('Selected mango farm location')}<br />{location.lat.toFixed(5)}, {location.lng.toFixed(5)}</Popup></Marker></MapContainer></div>
+      <div className="prediction-map"><MapContainer center={center} zoom={6} minZoom={5} maxZoom={20} scrollWheelZoom className="prediction-map-canvas"><MapLocationSearch onSelect={pick} t={t} /><PalawanMangoAreas t={t} /><FitPalawanExtent /><MapClick onPick={pick} /><Marker position={pin} icon={icon} draggable eventHandlers={{ dragend: (event) => { const point = event.target.getLatLng(); if (!isPalawanCoordinate([point.lat, point.lng])) event.target.setLatLng(pin); pick([point.lat, point.lng]); } }}><Tooltip permanent direction="top" offset={[0, -10]}>{t('Selected mango farm location')}</Tooltip><Popup>{t('Selected mango farm location')}<br />{location.lat.toFixed(5)}, {location.lng.toFixed(5)}</Popup></Marker></MapContainer></div>
       {error && <p className="error">{error}</p>}<div className="prediction-navigation"><button className="button" onClick={() => { setError(''); setStep(2); }}>{t('Next: choose dates')}</button></div>
     </section>}
 
@@ -123,5 +132,6 @@ export default function PredictionPage() {
       <div className="prediction-navigation"><button className="button secondary" onClick={() => setStep(3)}>{t('Back to weather')}</button><button className="button" onClick={() => { setStep(1); setClimate(null); setPrediction(null); setStartDate(localToday()); }}>{t('Start a new prediction')}</button></div>
     </section>}
     <ConfirmDialog open={savedDialogOpen} title={t('Report saved')} confirmLabel={t('Okay')} onConfirm={() => setSavedDialogOpen(false)} onClose={() => setSavedDialogOpen(false)}>{t('Prediction saved to your reports.')}</ConfirmDialog>
+    <ConfirmDialog open={regionUnavailableOpen} title={t('Region unavailable')} confirmLabel={t('Okay')} cancelLabel="" onConfirm={() => setRegionUnavailableOpen(false)} onClose={() => setRegionUnavailableOpen(false)}>{t('This region is still locked because of no data')}</ConfirmDialog>
   </div>;
 }

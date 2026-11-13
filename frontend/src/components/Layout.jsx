@@ -5,6 +5,7 @@ import { useAuth } from '../auth';
 import api from '../api';
 import { io } from 'socket.io-client';
 import StyledDropdown from './StyledDropdown';
+import ConfirmDialog from './ConfirmDialog';
 
 const nav = [
   ['/app/prediction', 'prediction', '◉'], ['/app/history', 'history', '◷'], ['/app/saved', 'saved', '☆'], ['/app/forum', 'forum', '◎'], ['/app/messages', 'messages', '✉'], ['/app/settings', 'settings', '⚙'],
@@ -25,6 +26,7 @@ export default function Layout() {
   const [notifications, setNotifications] = useState([]);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [notificationsLoading, setNotificationsLoading] = useState(false);
+  const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
   const notificationWrapRef = useRef(null);
   const navigate = useNavigate();
   const visibleNav = [...nav.filter(([to]) => to !== '/app/settings'), ['/app/ai', 'AI assistant', '✦'], ...(user?.role === 'researcher' ? [['/app/system-iteration', 'System iteration', '⌁']] : []), ...(user?.role === 'admin' ? [['/app/admin', 'adminDashboard', '▦']] : []), ...(user?.role === 'da' ? [['/app/da', 'daDashboard', '▥']] : []), nav.find(([to]) => to === '/app/settings')];
@@ -74,7 +76,7 @@ export default function Layout() {
       <div className="top-actions">
         <div className="language-select-wrap"><StyledDropdown className="topbar-language-picker" value={i18n.resolvedLanguage || 'en'} options={headerLanguages} onChange={(language) => { i18n.changeLanguage(language); localStorage.setItem('weeware-language', language); }} label={t('Choose language')} icon /></div><div className="notification-wrap" ref={notificationWrapRef}><button className={`notification-button ${notificationsOpen ? 'is-open' : ''}`} aria-expanded={notificationsOpen} onClick={toggleNotifications} aria-label={t('Notifications')} title={t('Notifications')}><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M24 4c-8.1 0-14 6.2-14 14.6v8.1c0 3.1-1.2 5.7-3.5 7.7-.9.8-.3 2.3.9 2.3h33.2c1.2 0 1.8-1.5.9-2.3-2.3-2-3.5-4.6-3.5-7.7v-8.1C38 10.2 32.1 4 24 4Zm-5.4 36.2a5.6 5.6 0 0 0 10.8 0H18.6Z" /></svg>{unread > 0 && <b className="notification-count">{unread > 99 ? '99+' : unread}</b>}</button>{notificationsOpen && <section className="notification-menu"><div className="section-head"><strong>{t('Notifications')}</strong><button className="quiet-button" onClick={markAllRead}>{t('Mark all read')}</button></div>{notificationsLoading && notifications.length === 0 ? <p className="muted" role="status">{t('Loading notifications…')}</p> : notifications.length ? notifications.map((item) => <button type="button" className={`notification-row ${item.isRead ? '' : 'unread'}`} key={item._id} onClick={() => openNotification(item)}><strong>{item.actor?.fullName || t('A community member')}</strong> {notificationText(item.type)}<small>{new Date(item.createdAt).toLocaleString()}</small></button>) : <p className="muted">{t('No notifications yet.')}</p>}</section>}</div>
         <button className="user-chip" onClick={() => navigate('/app/settings')} aria-label={t('Edit profile')} title={t('Edit profile')}><span>{user?.fullName?.split(' ')[0]}</span></button>
-        <button className="quiet-button" onClick={async () => { try { await signOut(); } finally { navigate('/', { replace: true }); } }}>{t('signOut')}</button>
+        <button className="quiet-button" onClick={() => setLogoutDialogOpen(true)}>{t('signOut')}</button>
       </div>
     </header>
     <div className="app-frame"><aside className="sidebar">{visibleNav.map(([to, key, icon]) => <NavLink key={to} to={to} className={({ isActive }) => `side-link ${isActive ? 'active' : ''}`}><span className="side-icon">{icon}</span><span>{t(key, { defaultValue: key === 'messages' ? t('Messages') : key === 'adminDashboard' ? t('Admin dashboard') : key === 'daDashboard' ? t('DA dashboard') : key })}</span></NavLink>)}<div className="sidebar-foot">{t('Palawan Island')}<br />{t('Philippines')}</div></aside><main className="main-content"><Outlet /></main></div>
@@ -85,5 +87,6 @@ export default function Layout() {
       <NavLink to="/app/messages" aria-label={t('messages')} title={t('messages')} className={({ isActive }) => `mobile-bottom-link ${isActive ? 'active' : ''}`}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11.5a7.5 7.5 0 0 1-7.5 7.5H5l1.5-3A7.5 7.5 0 1 1 20 11.5Z" /><path d="M8 10h8M8 13h5" /></svg></NavLink>
       <NavLink to="/app/settings" aria-label={t('settings')} title={t('settings')} className={({ isActive }) => `mobile-bottom-link ${isActive ? 'active' : ''}`}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 2h4l.7 2.3a8 8 0 0 1 1.7.9l2.3-.7 2 3.5-1.7 1.7a8 8 0 0 1 0 2l1.7 1.7-2 3.5-2.3-.7a8 8 0 0 1-1.7.9L14 20h-4l-.7-2.3a8 8 0 0 1-1.7-.9l-2.3.7-2-3.5L5 12.3a8 8 0 0 1 0-2L3.3 8.6l2-3.5 2.3.7a8 8 0 0 1 1.7-.9L10 2Z" /><circle cx="12" cy="11.3" r="2.7" /></svg></NavLink>
     </nav>
+    <ConfirmDialog open={logoutDialogOpen} title={t('Sign out?')} confirmLabel={t('signOut')} cancelLabel={t('Cancel')} onConfirm={async () => { try { await signOut(); navigate('/', { replace: true }); } finally { setLogoutDialogOpen(false); } }} onClose={() => setLogoutDialogOpen(false)}>{t('Are you sure you want to sign out?')}</ConfirmDialog>
   </div>;
 }

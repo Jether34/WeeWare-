@@ -19,6 +19,7 @@ export default function SettingsPage() {
   const [passwords, setPasswords] = useState({ newPassword: '', confirmPassword: '' });
   const [notice, setNotice] = useState(''); const [error, setError] = useState(''); const [busy, setBusy] = useState(false); const [passwordBusy, setPasswordBusy] = useState(false);
   const [accountDialog, setAccountDialog] = useState(null); const [accountBusy, setAccountBusy] = useState(false);
+  const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
 
   async function signOutToLanding() {
     try { await signOut(); }
@@ -108,9 +109,10 @@ export default function SettingsPage() {
 
       <section className="card settings-card delete-settings-card"><div><h2>{t('Account controls')}</h2><p>{t('Deactivate to block sign-in, or permanently delete your profile and WeeWare activity. Deletion cannot be undone.')}</p></div><div className="row"><button className="button secondary" onClick={() => setAccountDialog('deactivate')}>{t('Deactivate account')}</button><button className="button danger" onClick={() => setAccountDialog('delete')}>{t('Delete my account')}</button></div></section>
     </div>
-    <button type="button" className="button secondary mobile-settings-signout" onClick={signOutToLanding}>{t('signOut')}</button>
+    <button type="button" className="button secondary mobile-settings-signout" onClick={() => setLogoutDialogOpen(true)}>{t('signOut')}</button>
     <ConfirmDialog open={Boolean(accountDialog)} title={accountDialog === 'delete' ? t('Delete your account?') : t('Deactivate your account?')} variant="danger" confirmLabel={accountDialog === 'delete' ? t('Delete account') : t('Deactivate account')} cancelLabel={t('Cancel')} onConfirm={accountDialog === 'delete' ? deleteAccount : deactivateAccount} onClose={() => setAccountDialog(null)} busy={accountBusy}>
       {accountDialog === 'delete' ? <><p>{t('This permanently deletes your profile, predictions, saved reports, messages, posts, and comments.')}</p><p>{t('This action cannot be undone.')}</p></> : <><p>{t('Your account will be signed out and hidden from community posts. Other people will not be able to message you.')}</p><p>{t('To reactivate, sign in with your email and password, then enter the verification code sent to your email.')}</p></>}
     </ConfirmDialog>
+    <ConfirmDialog open={logoutDialogOpen} title={t('Sign out?')} confirmLabel={t('signOut')} cancelLabel={t('Cancel')} onConfirm={signOutToLanding} onClose={() => setLogoutDialogOpen(false)}>{t('Are you sure you want to sign out?')}</ConfirmDialog>
   </div>;
 }
